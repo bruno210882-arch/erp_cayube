@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+
+<h2>📊 Histórico de Vendas</h2>
+
+<table border="1" cellpadding="10" style="width: 100%;">
+    <tr style="background-color: #eee;">
+        <th>ID</th>
+        <th>Cliente</th>
+        <th>Produto</th>
+        <th>Qtd</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th>Pagamento</th>
+    </tr>
+
+    {% for v in vendas %}
+    <tr>
+        <td>{{ v.id }}</td>
+        <td>{{ v.cliente }}</td>
+        <td>{{ v.produto }}</td>
+        <td>{{ v.quantidade }}</td>
+        <td>R$ {{ "%.2f"|format(v.total) }}</td>
+
+        <td>
+            {% if v.pago %}
+                <span style="color: green;">Pago</span>
+            {% else %}
+                <span style="color: red;">Fiado</span>
+            {% endif %}
+        </td>
+
+        <td>
+            {{ v.forma_pagamento if v.forma_pagamento else "-" }}
+        </td>
+    </tr>
+    {% endfor %}
+
+</table>
+
+{% if vendas|length == 0 %}
+<p>Nenhuma venda registrada.</p>
+{% endif %}
+
+{% endblock %}

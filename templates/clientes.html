@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+
+<h2>Clientes</h2>
+
+<form method="POST" action="/add_cliente">
+    <input type="text" name="nome" placeholder="Nome" required>
+    <input type="text" name="telefone" placeholder="Telefone">
+    <button type="submit">Cadastrar</button>
+</form>
+
+<br><br>
+
+{% for c in clientes %}
+    <p>
+        {{ c.nome }} - {{ c.local }}
+    </p>
+{% endfor %}
+
+{% endblock %}

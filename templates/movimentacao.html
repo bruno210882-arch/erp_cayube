@@ -1,0 +1,68 @@
+
+
+<hr>
+{% extends 'base.html' %}
+
+{% block conteudo %}
+<h3>💰 Saldo Atual</h3>
+
+<p><strong>Dinheiro:</strong> R$ {{ "%.2f"|format(saldo.dinheiro) }}</p>
+<p><strong>Conta:</strong> R$ {{ "%.2f"|format(saldo.conta) }}</p>
+
+<h2>💰 Movimentação Financeira</h2>
+
+<form method="POST">
+
+    <label>Tipo:</label>
+    <select name="tipo">
+        <option value="entrada">Depósito</option>
+        <option value="saida">Retirada</option>
+    </select>
+
+    <label>Valor:</label>
+    <input type="number" step="0.01" name="valor" required>
+
+    <label>Origem:</label>
+    <select name="origem">
+        <option value="dinheiro">Dinheiro</option>
+        <option value="conta">Conta</option>
+    </select>
+
+    <label>Descrição:</label>
+    <input type="text" name="descricao">
+
+    <button type="submit">Salvar</button>
+
+</form>
+
+<hr>
+
+<table border="1" width="100%">
+    <tr>
+        <th>Data</th>
+        <th>Tipo</th>
+        <th>Valor</th>
+        <th>Origem</th>
+        <th>Descrição</th>
+    </tr>
+
+    {% for m in movimentos %}
+    <tr>
+        <td>{{ m.data.strftime('%d/%m/%Y %H:%M') }}</td>
+
+        <td>
+            {% if m.tipo == 'entrada' %}
+                <span style="color: green;">Depósito</span>
+            {% else %}
+                <span style="color: red;">Retirada</span>
+            {% endif %}
+        </td>
+
+        <td>R$ {{ "%.2f"|format(m.valor) }}</td>
+        <td>{{ m.origem }}</td>
+        <td>{{ m.descricao }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

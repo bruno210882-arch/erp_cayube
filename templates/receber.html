@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+
+<h2>Receber - {{ cliente.nome }}</h2>
+
+<form method="POST">
+
+    <label>Forma de Pagamento:</label><br><br>
+
+    <select name="forma" required>
+        <option value="">Selecione</option>
+        <option value="Dinheiro">Dinheiro</option>
+        <option value="Transferência">Transferência</option>
+    </select>
+
+    <br><br>
+
+    <button type="submit">Confirmar Recebimento</button>
+
+</form>
+
+{% endblock %}

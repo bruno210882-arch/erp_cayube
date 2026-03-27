@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+
+<h2>📥 Entrada de Estoque</h2>
+
+<form method="POST">
+
+    <label>Produto:</label>
+    <select name="produto">
+        {% for p in produtos %}
+        <option value="{{ p.id }}">{{ p.nome }}</option>
+        {% endfor %}
+    </select>
+
+    <label>Quantidade:</label>
+    <input type="number" name="quantidade" required>
+
+    <button type="submit">Adicionar</button>
+
+</form>
+
+{% endblock %}

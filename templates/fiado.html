@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+
+<h2>💳 Clientes com Fiado</h2>
+
+<table>
+<tr>
+    <th>Cliente</th>
+    <th>Telefone</th>
+    <th>Dívida</th>
+    <th>Ação</th>
+</tr>
+
+{% for c in clientes %}
+<tr>
+    <td>{{ c.nome }}</td>
+    <td>{{ c.telefone }}</td>
+    <td>R$ {{ "%.2f"|format(c.divida) }}</td>
+    <td>
+        <a href="/receber/{{ c.nome }}">Receber</a>
+    </td>
+</tr>
+{% endfor %}
+
+</table>
+
+{% endblock %}

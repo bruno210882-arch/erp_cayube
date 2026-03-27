@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+
+<h2>Caixa</h2>
+
+<h3>Total vendido: R$ {{ total }}</h3>
+
+<table border="1">
+    <tr>
+        <th>ID</th>
+        <th>Produto</th>
+        <th>Cliente</th>
+        <th>Quantidade</th>
+        <th>Total</th>
+    </tr>
+
+    {% for v in vendas %}
+    <tr>
+        <td>{{ v.id }}</td>
+        <td>{{ v.produto_id }}</td>
+        <td>{{ v.cliente_id }}</td>
+        <td>{{ v.quantidade }}</td>
+        <td>R$ {{ v.total }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

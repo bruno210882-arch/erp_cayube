@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+
+<h2>💰 Relatório Financeiro</h2>
+
+<p><b>Saldo em Dinheiro:</b> R$ {{ saldo.dinheiro }}</p>
+<p><b>Saldo em Conta:</b> R$ {{ saldo.conta }}</p>
+
+<hr>
+
+<p><b>Total Entradas:</b> R$ {{ entradas }}</p>
+<p><b>Total Saídas:</b> R$ {{ saidas }}</p>
+
+<hr>
+
+<table>
+<tr>
+<th>Tipo</th>
+<th>Valor</th>
+<th>Origem</th>
+<th>Descrição</th>
+<th>Data</th>
+</tr>
+
+{% for m in movimentos %}
+<tr>
+<td>{{ m.tipo }}</td>
+<td>R$ {{ m.valor }}</td>
+<td>{{ m.origem }}</td>
+<td>{{ m.descricao }}</td>
+<td>{{ m.data.strftime('%d/%m/%Y') }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+{% endblock %}

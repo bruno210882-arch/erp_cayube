@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+
+<h2>📊 Dashboard</h2>
+
+<div style="display:flex; flex-wrap:wrap; gap:20px;">
+
+    <div class="card">
+        <h3>💰 Dinheiro</h3>
+        <p>R$ {{ "%.2f"|format(saldo.dinheiro) }}</p>
+    </div>
+
+    <div class="card">
+        <h3>🏦 Conta</h3>
+        <p>R$ {{ "%.2f"|format(saldo.conta) }}</p>
+    </div>
+
+    <div class="card">
+        <h3>💵 Total Caixa</h3>
+        <p>R$ {{ "%.2f"|format(saldo.dinheiro + saldo.conta) }}</p>
+    </div>
+
+    <div class="card">
+        <h3>📈 Vendas</h3>
+        <p>R$ {{ "%.2f"|format(total_vendas) }}</p>
+    </div>
+
+    <div class="card">
+        <h3>💳 Fiado</h3>
+        <p>R$ {{ "%.2f"|format(total_fiado) }}</p>
+    </div>
+
+    <div class="card">
+        <h3>📦 Estoque</h3>
+        <p>{{ total_estoque }} itens</p>
+    </div>
+
+    <div class="card">
+        <h3>🔥 Lucro</h3>
+        <p>R$ {{ "%.2f"|format(lucro_total) }}</p>
+    </div>
+
+</div>
+
+<style>
+.card {
+    background: #1e1e2f;
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    width: 200px;
+    text-align: center;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
+</style>
+
+{% endblock %}

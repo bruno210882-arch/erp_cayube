@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block conteudo %}
+
+<h2>💸 Margem de Lucro por Produto</h2>
+
+<table>
+<tr>
+<th>Produto</th>
+<th>Qtd Vendida</th>
+<th>Faturamento</th>
+<th>Custo</th>
+<th>Lucro</th>
+</tr>
+
+{% for r in relatorio %}
+<tr>
+<td>{{ r.produto }}</td>
+<td>{{ r.vendido }}</td>
+<td>R$ {{ r.faturamento }}</td>
+<td>R$ {{ r.custo }}</td>
+<td>R$ {{ r.lucro }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+{% endblock %}
