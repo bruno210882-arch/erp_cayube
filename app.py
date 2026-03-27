@@ -5,9 +5,7 @@ from datetime import datetime
 app = Flask(__name__)
 
 # 🔥 CONFIGURAÇÃO DO BANCO (CORRETO)
-import os
-
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+psycopg2://postgres:Flexis150300@db.XXXX.supabase.co:5432/postgres"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
