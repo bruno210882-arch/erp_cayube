@@ -377,9 +377,8 @@ def relatorio_lucro():
         })
 
     return render_template('relatorio_lucro.html', relatorio=relatorio)
+
 # ================= RUN =================
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()  # CRIA TODAS AS TABELAS
-
-    app.run(debug=True)
+        db.create_all()  # CRIA TODAS AS TABEL
