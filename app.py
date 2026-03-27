@@ -382,5 +382,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # CRIA TODAS AS TABELAS
 
-   if __name__ == '__main__':
     app.run(debug=True)
