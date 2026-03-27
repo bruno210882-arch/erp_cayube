@@ -5,7 +5,9 @@ from datetime import datetime
 app = Flask(__name__)
 
 # 🔥 CONFIGURAÇÃO DO BANCO (CORRETO)
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+psycopg2://postgres:Flexis150300@db.izcbwtvcfszrctsxoenm.supabase.co:5432/postgres"
+import os
+
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -379,6 +381,9 @@ def relatorio_lucro():
     return render_template('relatorio_lucro.html', relatorio=relatorio)
 
 # ================= RUN =================
+# ================= RUN =================
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()  # CRIA TODAS AS TABEL
+        db.create_all()  # cria tabelas só localmente
+
+    app.run(debug=True)
