@@ -6,10 +6,15 @@ app = Flask(__name__)
 
 import os
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+uri = os.getenv("DATABASE_URL")
 
+if not uri:
+    raise RuntimeError("DATABASE_URL não configurado no Render!")
+
+if uri.startswith("postgres://"):
+    uri = uri.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = uri
 # ================= MODELS =================
 
 class Cliente(db.Model):
@@ -28,15 +33,14 @@ class Produto(db.Model):
 
 
 class Venda(db.Model):
+   class Venda(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    produto_id = db.Column(db.Integer)
-    cliente_id = db.Column(db.Integer)
+    produto_id = db.Column(db.Integer, db.ForeignKey('produto.id'))
+    cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'))
     quantidade = db.Column(db.Integer)
     total = db.Column(db.Float)
     pago = db.Column(db.Boolean)
     forma_pagamento = db.Column(db.String(20))
-    produto_id = db.Column(db.Integer, db.ForeignKey('produto.id'))	
-    cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'))
 
 
 class Saldo(db.Model):
