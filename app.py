@@ -1,11 +1,11 @@
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from sqlalchemy import func
 import os
 
 app = Flask(__name__)
 
-# ================= DATABASE =================
+# ================== BANCO ==================
 uri = os.getenv("DATABASE_URL")
 
 if not uri:
@@ -19,90 +19,49 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# ================= MODELS =================
-
-class Cliente(db.Model):
+# ================== MODELS (exemplo) ==================
+class Venda(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100))
-    local = db.Column(db.String(100))
-    divida = db.Column(db.Float, default=0)
-    telefone = db.Column(db.String(20))
+    valor = db.Column(db.Float)
+
+class Despesa(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    valor = db.Column(db.Float)
+
+class Fiado(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    valor = db.Column(db.Float)
 
 class Produto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100))
-    preco = db.Column(db.Float)
-    custo = db.Column(db.Float)
-    estoque = db.Column(db.Integer)
-
-class Venda(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    produto_id = db.Column(db.Integer)
-    cliente_id = db.Column(db.Integer)
     quantidade = db.Column(db.Integer)
-    total = db.Column(db.Float)
-    pago = db.Column(db.Boolean)
 
-class Saldo(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    dinheiro = db.Column(db.Float, default=0)
-    conta = db.Column(db.Float, default=0)
-
-# ================= INIT =================
-with app.app_context():
-    db.create_all()
-
-def get_saldo():
-    saldo = Saldo.query.first()
-    if not saldo:
-        saldo = Saldo(dinheiro=0, conta=0)
-        db.session.add(saldo)
-        db.session.commit()
-    return saldo
-
-# ================= ROTAS =================
-
+# ================== DASHBOARD ==================
 @app.route('/')
 def index():
-    saldo = get_saldo()
-    return render_template('index.html', saldo=saldo)
 
-@app.route('/clientes')
-def clientes():
-    return render_template('clientes.html')
+    total_vendas = db.session.query(func.sum(Venda.valor)).scalar() or 0
+    total_despesas = db.session.query(func.sum(Despesa.valor)).scalar() or 0
+    total_fiado = db.session.query(func.sum(Fiado.valor)).scalar() or 0
+    total_estoque = db.session.query(func.sum(Produto.quantidade)).scalar() or 0
 
-@app.route('/produtos')
-def produtos():
-    return render_template('produtos.html')
+    lucro_total = total_vendas - total_despesas
 
-@app.route('/venda')
-def venda():
-    return render_template('venda.html')
+    # Simulação de caixa (ajuste se tiver campo real)
+    saldo = {
+        "dinheiro": total_vendas * 0.4,
+        "conta": total_vendas * 0.6
+    }
 
-@app.route('/fiado')
-def fiado():
-    return render_template('fiado.html')
+    return render_template(
+        'index.html',
+        saldo=saldo,
+        total_vendas=total_vendas,
+        total_fiado=total_fiado,
+        total_estoque=total_estoque,
+        lucro_total=lucro_total
+    )
 
-@app.route('/movimentacao')
-def movimentacao():
-    return render_template('movimentacao.html')
-
-@app.route('/entrada_estoque')
-def entrada_estoque():
-    return render_template('entrada_estoque.html')
-
-@app.route('/relatorio_financeiro')
-def relatorio_financeiro():
-    return render_template('relatorio_financeiro.html')
-
-@app.route('/relatorio_estoque')
-def relatorio_estoque():
-    return render_template('relatorio_estoque.html')
-
-@app.route('/relatorio_lucro')
-def relatorio_lucro():
-    return render_template('relatorio_lucro.html')
-
-# ================= RUN =================
+# ================== START ==================
 if __name__ == '__main__':
     app.run(debug=True)
