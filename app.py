@@ -1,20 +1,21 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+import os
 
 app = Flask(__name__)
-
-import os
 
 uri = os.getenv("DATABASE_URL")
 
 if not uri:
-    raise RuntimeError("DATABASE_URL não configurado no Render!")
+    raise RuntimeError("DATABASE_URL não configurado!")
 
 if uri.startswith("postgres://"):
     uri = uri.replace("postgres://", "postgresql://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = uri
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
 # ================= MODELS =================
 
 class Cliente(db.Model):
