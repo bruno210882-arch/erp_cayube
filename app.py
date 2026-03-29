@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+	from flask import Flask, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
@@ -67,8 +67,8 @@ class MovimentoEstoque(db.Model):
     data = db.Column(db.DateTime, default=datetime.utcnow)
 
 # ================= INIT DB =================
-with app.app_context():
-    db.create_all()
+#with app.app_context():
+ #   db.create_all()
 
 # ================= FUNÇÕES =================
 
