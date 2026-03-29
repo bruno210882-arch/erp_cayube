@@ -107,6 +107,10 @@ def index():
         lucro_total=lucro_total
     )
 
+@app.route('/initdb')
+def initdb():
+    db.create_all()
+    return "Banco criado!"
 # ================= RUN =================
 if __name__ == '__main__':
     app.run(debug=True)
