@@ -12,7 +12,6 @@ print("DEBUG DATABASE_URL:", uri)
 if not uri:
     raise RuntimeError("DATABASE_URL não configurado!")
 
-# Corrige padrão antigo do postgres
 if uri.startswith("postgres://"):
     uri = uri.replace("postgres://", "postgresql://", 1)
 
@@ -51,23 +50,7 @@ class Saldo(db.Model):
     dinheiro = db.Column(db.Float, default=0)
     conta = db.Column(db.Float, default=0)
 
-class Movimento(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    tipo = db.Column(db.String(20))
-    valor = db.Column(db.Float)
-    origem = db.Column(db.String(20))
-    descricao = db.Column(db.String(200))
-    data = db.Column(db.DateTime, default=datetime.utcnow)
-
-class MovimentoEstoque(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    produto_id = db.Column(db.Integer)
-    tipo = db.Column(db.String(20))
-    quantidade = db.Column(db.Integer)
-    motivo = db.Column(db.String(100))
-    data = db.Column(db.DateTime, default=datetime.utcnow)
-
-# ================= INIT AUTOMÁTICO =================
+# ================= INIT DB =================
 with app.app_context():
     db.create_all()
 
@@ -86,29 +69,25 @@ def get_saldo():
 @app.route('/')
 def index():
     saldo = get_saldo()
+    return render_template('index.html', saldo=saldo)
 
-    vendas = Venda.query.all()
-    produtos = Produto.query.all()
+# ✅ ROTA CLIENTES (CORREÇÃO DO ERRO)
+@app.route('/clientes')
+def clientes():
+    lista = Cliente.query.all()
+    return render_template('clientes.html', clientes=lista)
 
-    total_vendas = sum(v.total for v in vendas if v.pago)
-    total_fiado = sum(v.total for v in vendas if not v.pago)
-    total_estoque = sum(p.estoque for p in produtos)
+# ✅ ROTA PRODUTOS
+@app.route('/produtos')
+def produtos():
+    lista = Produto.query.all()
+    return render_template('produtos.html', produtos=lista)
 
-    lucro_total = 0
-    for v in vendas:
-        produto = Produto.query.get(v.produto_id)
-        if produto:
-            custo = produto.custo or 0
-            lucro_total += (v.total - (custo * v.quantidade))
-
-    return render_template(
-        'index.html',
-        saldo=saldo,
-        total_vendas=total_vendas,
-        total_fiado=total_fiado,
-        total_estoque=total_estoque,
-        lucro_total=lucro_total
-    )
+# ✅ ROTA VENDAS
+@app.route('/vendas')
+def vendas():
+    lista = Venda.query.all()
+    return render_template('vendas.html', vendas=lista)
 
 # ================= RUN =================
 
