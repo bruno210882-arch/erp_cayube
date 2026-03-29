@@ -7,6 +7,7 @@ app = Flask(__name__)
 
 # ================= DATABASE =================
 uri = os.getenv("DATABASE_URL")
+print("DEBUG DATABASE_URL:", uri)
 
 if not uri:
     raise RuntimeError("DATABASE_URL não configurado!")
