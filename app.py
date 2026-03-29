@@ -12,6 +12,7 @@ print("DEBUG DATABASE_URL:", uri)
 if not uri:
     raise RuntimeError("DATABASE_URL não configurado!")
 
+# Corrige padrão antigo do postgres
 if uri.startswith("postgres://"):
     uri = uri.replace("postgres://", "postgresql://", 1)
 
@@ -66,9 +67,9 @@ class MovimentoEstoque(db.Model):
     motivo = db.Column(db.String(100))
     data = db.Column(db.DateTime, default=datetime.utcnow)
 
-# ================= INIT DB =================
-#with app.app_context():
- #   db.create_all()
+# ================= INIT AUTOMÁTICO =================
+with app.app_context():
+    db.create_all()
 
 # ================= FUNÇÕES =================
 
@@ -100,7 +101,8 @@ def index():
             custo = produto.custo or 0
             lucro_total += (v.total - (custo * v.quantidade))
 
-    return render_template('index.html',
+    return render_template(
+        'index.html',
         saldo=saldo,
         total_vendas=total_vendas,
         total_fiado=total_fiado,
@@ -108,10 +110,7 @@ def index():
         lucro_total=lucro_total
     )
 
-@app.route('/initdb')
-def initdb():
-    db.create_all()
-    return "Banco criado!"
 # ================= RUN =================
+
 if __name__ == '__main__':
     app.run(debug=True)
