@@ -1,11 +1,17 @@
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
+=======
+from datetime import datetime
 import os
 
 app = Flask(__name__)
 
+<<<<<<< HEAD
 # ================== BANCO ==================
+=======
+# ================= DATABASE =================
+>>>>>>> fd18c1f (atualizado)
 uri = os.getenv("DATABASE_URL")
 
 if not uri:
@@ -16,6 +22,13 @@ if uri.startswith("postgres://"):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+<<<<<<< HEAD
+=======
+
+db = SQLAlchemy(app)
+
+# ================= MODELS =================
+>>>>>>> fd18c1f (atualizado)
 
 db = SQLAlchemy(app)
 
@@ -32,13 +45,68 @@ class Fiado(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     valor = db.Column(db.Float)
 
+
 class Produto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+<<<<<<< HEAD
     quantidade = db.Column(db.Integer)
+=======
+    nome = db.Column(db.String(100))
+    preco = db.Column(db.Float)
+    custo = db.Column(db.Float)
+    estoque = db.Column(db.Integer)
+
+
+class Venda(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    produto_id = db.Column(db.Integer, db.ForeignKey('produto.id'))
+    cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'))
+    quantidade = db.Column(db.Integer)
+    total = db.Column(db.Float)
+    pago = db.Column(db.Boolean)
+    forma_pagamento = db.Column(db.String(20))
+
+
+class Saldo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    dinheiro = db.Column(db.Float, default=0)
+    conta = db.Column(db.Float, default=0)
+
+
+class Movimento(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tipo = db.Column(db.String(20))
+    valor = db.Column(db.Float)
+    origem = db.Column(db.String(20))
+    descricao = db.Column(db.String(200))
+    data = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class MovimentoEstoque(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    produto_id = db.Column(db.Integer)
+    tipo = db.Column(db.String(20))
+    quantidade = db.Column(db.Integer)
+    motivo = db.Column(db.String(100))
+    data = db.Column(db.DateTime, default=datetime.utcnow)
+
+# ================= FUNÇÃO SALDO =================
+
+def get_saldo():
+    saldo = Saldo.query.first()
+    if not saldo:
+        saldo = Saldo(dinheiro=0, conta=0)
+        db.session.add(saldo)
+        db.session.commit()
+    return saldo
+
+# ================= DASHBOARD =================
+>>>>>>> fd18c1f (atualizado)
 
 # ================== DASHBOARD ==================
 @app.route('/')
 def index():
+<<<<<<< HEAD
 
     total_vendas = db.session.query(func.sum(Venda.valor)).scalar() or 0
     total_despesas = db.session.query(func.sum(Despesa.valor)).scalar() or 0
@@ -46,6 +114,12 @@ def index():
     total_estoque = db.session.query(func.sum(Produto.quantidade)).scalar() or 0
 
     lucro_total = total_vendas - total_despesas
+=======
+    saldo = get_saldo()
+
+    vendas = Venda.query.all()
+    produtos = Produto.query.all()
+>>>>>>> fd18c1f (atualizado)
 
     # Simulação de caixa (ajuste se tiver campo real)
     saldo = {
@@ -62,6 +136,10 @@ def index():
         lucro_total=lucro_total
     )
 
+<<<<<<< HEAD
 # ================== START ==================
+=======
+# ================= RUN =================
+>>>>>>> fd18c1f (atualizado)
 if __name__ == '__main__':
     app.run(debug=True)
