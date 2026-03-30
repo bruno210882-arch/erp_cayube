@@ -169,10 +169,32 @@ def venda():
 
 @app.route("/entrada_estoque", methods=["GET", "POST"])
 def entrada_estoque():
-    ...
+    if request.method == "POST":
+        produto_id = request.form["produto"]
+        quantidade = int(request.form["quantidade"])
+
+        produto = Produto.query.get(produto_id)
+        produto.estoque += quantidade
+
+        movimento = MovimentoEstoque(
+            produto_id=produto_id,
+            tipo="entrada",
+            quantidade=quantidade,
+            motivo="Entrada manual"
+        )
+
+        db.session.add(movimento)
+        db.session.commit()
+
+        return redirect(url_for("entrada_estoque"))
+
+    produtos = Produto.query.all()
+    movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
+
     return render_template(
         "entrada_estoque.html",
-        produtos=Produto.query.all(),
+        produtos=produtos,
+        movimentos=movimentos
     )
 
 @app.route("/fiado")
@@ -222,11 +244,6 @@ def movimentacao():
         saldo=saldo
     )
 
-@app.route("/entrada_estoque")
-def entrada_estoque():
-    return render_template("entrada_estoque.html")
-
-
 @app.route('/relatorio_financeiro')
 def relatorio_financeiro():
     saldo = get_saldo()
@@ -253,4 +270,4 @@ def relatorio_lucro():
     return render_template("relatorio_lucro.html")
 # ================= RUN =================
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=10000)
