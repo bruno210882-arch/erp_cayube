@@ -113,14 +113,49 @@ def index():
         lucro_total=lucro_total,
     )
 
+# ================= CLIENTES =================
 @app.route("/clientes")
 def clientes():
-    return render_template("clientes.html")
+    lista = Cliente.query.all()
+    return render_template("clientes.html", clientes=lista)
+
+@app.route("/add_cliente", methods=["POST"])
+def add_cliente():
+    nome = request.form["nome"]
+    telefone = request.form["telefone"]
+    local = request.form["local"]
+
+    novo = Cliente(nome=nome, telefone=telefone, local=local)
+    db.session.add(novo)
+    db.session.commit()
+
+    return redirect(url_for("clientes"))
 
 
+# ================= PRODUTOS =================
 @app.route("/produtos")
 def produtos():
-    return render_template("produtos.html")
+    lista = Produto.query.all()
+    return render_template("produtos.html", produtos=lista)
+
+@app.route("/add_produto", methods=["POST"])
+def add_produto():
+    nome = request.form["nome"]
+    preco = float(request.form["preco"])
+    custo = float(request.form["custo"])
+    estoque = int(request.form["estoque"])
+
+    novo = Produto(
+        nome=nome,
+        preco=preco,
+        custo=custo,
+        estoque=estoque
+    )
+
+    db.session.add(novo)
+    db.session.commit()
+
+    return redirect(url_for("produtos"))
 
 
 @app.route("/venda")
