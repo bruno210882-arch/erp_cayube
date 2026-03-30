@@ -133,20 +133,68 @@ def fiado():
     return render_template("fiado.html")
 
 
-@app.route("/movimentacao")
+@app.route('/movimentacao', methods=['GET', 'POST'])
 def movimentacao():
-    return render_template("movimentacao.html")
+    saldo = get_saldo()
 
+    if request.method == 'POST':
+        tipo = request.form['tipo']
+        valor = float(request.form['valor'])
+        origem = request.form['origem']
+        descricao = request.form['descricao']
+
+        movimento = Movimento(
+            tipo=tipo,
+            valor=valor,
+            origem=origem,
+            descricao=descricao
+        )
+
+        db.session.add(movimento)
+
+        # Atualiza saldo
+        if tipo == 'entrada':
+            if origem == 'dinheiro':
+                saldo.dinheiro += valor
+            else:
+                saldo.conta += valor
+        else:  # saída
+            if origem == 'dinheiro':
+                saldo.dinheiro -= valor
+            else:
+                saldo.conta -= valor
+
+        db.session.commit()
+        return redirect(url_for('movimentacao'))
+
+    movimentos = Movimento.query.order_by(Movimento.data.desc()).all()
+
+    return render_template(
+        'movimentacao.html',
+        movimentos=movimentos,
+        saldo=saldo
+    )
 
 @app.route("/entrada_estoque")
 def entrada_estoque():
     return render_template("entrada_estoque.html")
 
 
-@app.route("/relatorio_financeiro")
+@app.route('/relatorio_financeiro')
 def relatorio_financeiro():
-    return render_template("relatorio_financeiro.html")
+    saldo = get_saldo()
+    movimentos = Movimento.query.all()
 
+    entradas = sum(m.valor for m in movimentos if m.tipo == 'entrada')
+    saidas = sum(m.valor for m in movimentos if m.tipo == 'saida')
+
+    return render_template(
+        'relatorio_financeiro.html',
+        movimentos=movimentos,
+        entradas=entradas,
+        saidas=saidas,
+        saldo=saldo
+    )
 
 @app.route("/relatorio_estoque")
 def relatorio_estoque():
