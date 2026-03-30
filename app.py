@@ -328,5 +328,5 @@ def relatorio_estoque():
 def relatorio_lucro():
     return render_template("relatorio_lucro.html")
 # ================= RUN =================
-iif __name__ == "__main__":
+if __name__ == "__main__":
     app.run(debug=True)
