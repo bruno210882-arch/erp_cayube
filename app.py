@@ -158,10 +158,22 @@ def add_produto():
     return redirect(url_for("produtos"))
 
 
-@app.route("/venda")
+@app.route("/venda", methods=["GET", "POST"])
 def venda():
-    return render_template("venda.html")
+    ...
+    return render_template(
+        "venda.html",
+        produtos=Produto.query.all(),
+        clientes=Cliente.query.all(),
+    )
 
+@app.route("/entrada_estoque", methods=["GET", "POST"])
+def entrada_estoque():
+    ...
+    return render_template(
+        "entrada_estoque.html",
+        produtos=Produto.query.all(),
+    )
 
 @app.route("/fiado")
 def fiado():
