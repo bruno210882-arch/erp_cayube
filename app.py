@@ -11,7 +11,6 @@ app = Flask(__name__)
 # ================== BANCO ==================
 =======
 # ================= DATABASE =================
->>>>>>> fd18c1f (atualizado)
 uri = os.getenv("DATABASE_URL")
 
 if not uri:
