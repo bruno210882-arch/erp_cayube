@@ -5,36 +5,17 @@
 
 <div style="display:flex; gap:20px; margin-bottom:20px;">
     <div class="card">
-        <h3>Dinheiro</h3>
+        <h3>Saldo Dinheiro</h3>
         <p>R$ {{ "%.2f"|format(saldo.dinheiro) }}</p>
     </div>
+
     <div class="card">
-        <h3>Conta</h3>
+        <h3>Saldo Conta</h3>
         <p>R$ {{ "%.2f"|format(saldo.conta) }}</p>
     </div>
 </div>
 
-<form method="POST">
-    <label>Tipo</label>
-    <select name="tipo" required>
-        <option value="entrada">Entrada</option>
-        <option value="saida">Saída</option>
-    </select>
-
-    <label>Valor</label>
-    <input type="number" step="0.01" name="valor" required>
-
-    <label>Origem</label>
-    <select name="origem" required>
-        <option value="dinheiro">Dinheiro</option>
-        <option value="conta">Conta</option>
-    </select>
-
-    <label>Descrição</label>
-    <input type="text" name="descricao" required>
-
-    <button type="submit">Salvar</button>
-</form>
+<h3>Movimentações</h3>
 
 <table>
     <tr>
@@ -44,9 +25,10 @@
         <th>Origem</th>
         <th>Descrição</th>
     </tr>
+
     {% for m in movimentos %}
     <tr>
-        <td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td>
+        <td>{{ m.data.strftime('%d/%m/%Y %H:%M') }}</td>
         <td>{{ m.tipo }}</td>
         <td>R$ {{ "%.2f"|format(m.valor) }}</td>
         <td>{{ m.origem }}</td>
@@ -54,5 +36,29 @@
     </tr>
     {% endfor %}
 </table>
+
+<h3>Nova movimentação</h3>
+
+<form method="POST">
+    <label>Tipo</label>
+    <select name="tipo">
+        <option value="entrada">Entrada</option>
+        <option value="saida">Saída</option>
+    </select>
+
+    <label>Valor</label>
+    <input type="number" step="0.01" name="valor" required>
+
+    <label>Origem</label>
+    <select name="origem">
+        <option value="dinheiro">Dinheiro</option>
+        <option value="conta">Conta</option>
+    </select>
+
+    <label>Descrição</label>
+    <input type="text" name="descricao" required>
+
+    <button type="submit">Salvar</button>
+</form>
 
 {% endblock %}
