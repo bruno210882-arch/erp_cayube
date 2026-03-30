@@ -1,21 +1,41 @@
 {% extends 'base.html' %}
-
 {% block conteudo %}
 
-<h2>Clientes</h2>
+<h2>👥 Clientes</h2>
 
-<form method="POST" action="/add_cliente">
-    <input type="text" name="nome" placeholder="Nome" required>
-    <input type="text" name="telefone" placeholder="Telefone">
-    <button type="submit">Cadastrar</button>
+<form method="POST" action="{{ url_for('add_cliente') }}">
+    <label>Nome</label>
+    <input type="text" name="nome" required>
+
+    <label>Telefone</label>
+    <input type="text" name="telefone">
+
+    <label>Local</label>
+    <input type="text" name="local">
+
+    <button type="submit">Cadastrar Cliente</button>
 </form>
 
-<br><br>
+<h3>Lista de Clientes</h3>
 
-{% for c in clientes %}
-    <p>
-        {{ c.nome }} - {{ c.local }}
-    </p>
-{% endfor %}
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Telefone</th>
+        <th>Local</th>
+        <th>Dívida</th>
+    </tr>
+
+    {% for c in clientes %}
+    <tr>
+        <td>{{ c.id }}</td>
+        <td>{{ c.nome }}</td>
+        <td>{{ c.telefone }}</td>
+        <td>{{ c.local }}</td>
+        <td>R$ {{ "%.2f"|format(c.divida or 0) }}</td>
+    </tr>
+    {% endfor %}
+</table>
 
 {% endblock %}
