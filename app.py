@@ -1,19 +1,13 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
 from datetime import datetime
 import os
 
 app = Flask(__name__)
 
-
-# ================== BANCO ==================
-
-# ================= DATABASE =================
 uri = os.getenv("DATABASE_URL")
-
 if not uri:
-    raise RuntimeError("DATABASE_URL não configurado!")
+    raise RuntimeError("DATABASE_URL não configurado no Render!")
 
 if uri.startswith("postgres://"):
     uri = uri.replace("postgres://", "postgresql://", 1)
@@ -21,10 +15,7 @@ if uri.startswith("postgres://"):
 app.config['SQLALCHEMY_DATABASE_URI'] = uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-
-
 db = SQLAlchemy(app)
-
 # ================= MODELS =================
 
 
