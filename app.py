@@ -22,13 +22,13 @@ if uri.startswith("postgres://"):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-<<<<<<< HEAD
+
 =======
 
 db = SQLAlchemy(app)
 
 # ================= MODELS =================
->>>>>>> fd18c1f (atualizado)
+
 
 db = SQLAlchemy(app)
 
@@ -48,7 +48,7 @@ class Fiado(db.Model):
 
 class Produto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-<<<<<<< HEAD
+
     quantidade = db.Column(db.Integer)
 =======
     nome = db.Column(db.String(100))
@@ -101,7 +101,7 @@ def get_saldo():
     return saldo
 
 # ================= DASHBOARD =================
->>>>>>> fd18c1f (atualizado)
+
 
 # ================== DASHBOARD ==================
 @app.route('/')
@@ -136,10 +136,10 @@ def index():
         lucro_total=lucro_total
     )
 
-<<<<<<< HEAD
+
 # ================== START ==================
 =======
 # ================= RUN =================
->>>>>>> fd18c1f (atualizado)
+
 if __name__ == '__main__':
     app.run(debug=True)
