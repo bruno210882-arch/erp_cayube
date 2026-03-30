@@ -1,40 +1,32 @@
 {% extends 'base.html' %}
 {% block conteudo %}
 
-<h2>💳 Fiado</h2>
+<h2>💳 Vendas no Fiado</h2>
 
-<h3>Clientes com dívida</h3>
 <table>
     <tr>
         <th>Cliente</th>
-        <th>Dívida</th>
-        <th>Ação</th>
-    </tr>
-    {% for c in clientes %}
-    <tr>
-        <td>{{ c.nome }}</td>
-        <td>R$ {{ "%.2f"|format(c.divida or 0) }}</td>
-        <td><a href="{{ url_for('receber', nome=c.nome) }}">Receber</a></td>
-    </tr>
-    {% endfor %}
-</table>
-
-<h3>Itens vendidos no fiado</h3>
-<table>
-    <tr>
-        <th>ID</th>
         <th>Produto</th>
-        <th>Cliente</th>
         <th>Quantidade</th>
-        <th>Total</th>
+        <th>Valor em Aberto</th>
+        <th>Receber</th>
     </tr>
-    {% for v in vendas %}
+
+    {% for venda, cliente, produto in vendas_fiado %}
     <tr>
-        <td>{{ v.id }}</td>
-        <td>{{ v.produto_id }}</td>
-        <td>{{ v.cliente_id }}</td>
-        <td>{{ v.quantidade }}</td>
-        <td>R$ {{ "%.2f"|format(v.total) }}</td>
+        <td>{{ cliente.nome }}</td>
+        <td>{{ produto.nome }}</td>
+        <td>{{ venda.quantidade }}</td>
+        <td>R$ {{ "%.2f"|format(venda.total) }}</td>
+        <td>
+            <form method="POST" action="{{ url_for('receber_venda', venda_id=venda.id) }}">
+                <select name="forma" required>
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="transferencia">Transferência</option>
+                </select>
+                <button type="submit">Baixar</button>
+            </form>
+        </td>
     </tr>
     {% endfor %}
 </table>

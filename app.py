@@ -199,14 +199,41 @@ def entrada_estoque():
 
 @app.route("/fiado")
 def fiado():
-    clientes_lista = Cliente.query.filter(Cliente.divida > 0).all()
-    vendas_fiado = Venda.query.filter_by(pago=False).all()
-
-    return render_template(
-        "fiado.html",
-        clientes=clientes_lista,
-        vendas=vendas_fiado
+    vendas_fiado = (
+        db.session.query(Venda, Cliente, Produto)
+        .join(Cliente, Venda.cliente_id == Cliente.id)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.pago == False)
+        .all()
     )
+
+    return render_template("fiado.html", vendas_fiado=vendas_fiado)
+
+
+@app.route("/receber_venda/<int:venda_id>", methods=["POST"])
+def receber_venda(venda_id):
+    venda = Venda.query.get_or_404(venda_id)
+    cliente = Cliente.query.get(venda.cliente_id)
+    saldo = get_saldo()
+
+    forma = request.form["forma"]
+
+    if not venda.pago:
+        venda.pago = True
+        venda.forma_pagamento = forma
+
+        if forma.lower() == "dinheiro":
+            saldo.dinheiro += venda.total
+        else:
+            saldo.conta += venda.total
+
+        if cliente and cliente.divida:
+            cliente.divida = max((cliente.divida or 0) - venda.total, 0)
+
+        db.session.commit()
+
+    return redirect(url_for("fiado"))
+
 
 @app.route('/movimentacao', methods=['GET', 'POST'])
 def movimentacao():
