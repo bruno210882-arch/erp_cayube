@@ -198,7 +198,7 @@ def entrada_estoque():
         movimentos=movimentos
     )
 
-======================FIADO================================
+# ======================FIADO================================
 
 @app.route("/fiado")
 def fiado():
@@ -226,7 +226,7 @@ def fiado():
         clientes_resumo=clientes_resumo,
         total_geral_fiado=total_geral_fiado
     )
-===========RECEBER VENDA==================================
+# ===========RECEBER VENDA==================================
 
 
 @app.route("/receber_venda/<int:venda_id>", methods=["POST"])
@@ -253,7 +253,7 @@ def receber_venda(venda_id):
 
     return redirect(url_for("fiado"))
 
-====================MOVIMENTAÇAO==========================
+# ====================MOVIMENTAÇAO==========================
 
 @app.route('/movimentacao', methods=['GET', 'POST'])
 def movimentacao():
