@@ -113,7 +113,49 @@ def index():
         lucro_total=lucro_total,
     )
 
+@app.route("/clientes")
+def clientes():
+    return render_template("clientes.html")
 
+
+@app.route("/produtos")
+def produtos():
+    return render_template("produtos.html")
+
+
+@app.route("/venda")
+def venda():
+    return render_template("venda.html")
+
+
+@app.route("/fiado")
+def fiado():
+    return render_template("fiado.html")
+
+
+@app.route("/movimentacao")
+def movimentacao():
+    return render_template("movimentacao.html")
+
+
+@app.route("/entrada_estoque")
+def entrada_estoque():
+    return render_template("entrada_estoque.html")
+
+
+@app.route("/relatorio_financeiro")
+def relatorio_financeiro():
+    return render_template("relatorio_financeiro.html")
+
+
+@app.route("/relatorio_estoque")
+def relatorio_estoque():
+    return render_template("relatorio_estoque.html")
+
+
+@app.route("/relatorio_lucro")
+def relatorio_lucro():
+    return render_template("relatorio_lucro.html")
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(debug=True)
