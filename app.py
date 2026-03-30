@@ -1,7 +1,6 @@
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
-=======
 from datetime import datetime
 import os
 
@@ -9,7 +8,7 @@ app = Flask(__name__)
 
 
 # ================== BANCO ==================
-=======
+
 # ================= DATABASE =================
 uri = os.getenv("DATABASE_URL")
 
@@ -22,7 +21,7 @@ if uri.startswith("postgres://"):
 app.config['SQLALCHEMY_DATABASE_URI'] = uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-=======
+
 
 db = SQLAlchemy(app)
 
@@ -49,7 +48,7 @@ class Produto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     quantidade = db.Column(db.Integer)
-=======
+
     nome = db.Column(db.String(100))
     preco = db.Column(db.Float)
     custo = db.Column(db.Float)
@@ -112,7 +111,7 @@ def index():
     total_estoque = db.session.query(func.sum(Produto.quantidade)).scalar() or 0
 
     lucro_total = total_vendas - total_despesas
-=======
+
     saldo = get_saldo()
 
     vendas = Venda.query.all()
@@ -135,7 +134,7 @@ def index():
 
 
 # ================== START ==================
-=======
+
 # ================= RUN =================
 
 if __name__ == '__main__':
