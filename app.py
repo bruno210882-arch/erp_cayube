@@ -106,7 +106,6 @@ def get_saldo():
 # ================== DASHBOARD ==================
 @app.route('/')
 def index():
-<<<<<<< HEAD
 
     total_vendas = db.session.query(func.sum(Venda.valor)).scalar() or 0
     total_despesas = db.session.query(func.sum(Despesa.valor)).scalar() or 0
@@ -119,7 +118,6 @@ def index():
 
     vendas = Venda.query.all()
     produtos = Produto.query.all()
->>>>>>> fd18c1f (atualizado)
 
     # Simulação de caixa (ajuste se tiver campo real)
     saldo = {
