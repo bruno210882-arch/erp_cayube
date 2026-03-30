@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from flask import Flask, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -197,6 +198,8 @@ def entrada_estoque():
         movimentos=movimentos
     )
 
+======================FIADO================================
+
 @app.route("/fiado")
 def fiado():
     vendas_fiado = (
@@ -207,7 +210,23 @@ def fiado():
         .all()
     )
 
-    return render_template("fiado.html", vendas_fiado=vendas_fiado)
+    clientes_resumo = (
+        db.session.query(Cliente.nome, func.sum(Venda.total).label("total_divida"))
+        .join(Venda, Venda.cliente_id == Cliente.id)
+        .filter(Venda.pago == False)
+        .group_by(Cliente.nome)
+        .all()
+    )
+
+    total_geral_fiado = sum(item.total_divida for item in clientes_resumo)
+
+    return render_template(
+        "fiado.html",
+        vendas_fiado=vendas_fiado,
+        clientes_resumo=clientes_resumo,
+        total_geral_fiado=total_geral_fiado
+    )
+===========RECEBER VENDA==================================
 
 
 @app.route("/receber_venda/<int:venda_id>", methods=["POST"])
@@ -227,13 +246,14 @@ def receber_venda(venda_id):
         else:
             saldo.conta += venda.total
 
-        if cliente and cliente.divida:
+        if cliente:
             cliente.divida = max((cliente.divida or 0) - venda.total, 0)
 
         db.session.commit()
 
     return redirect(url_for("fiado"))
 
+====================MOVIMENTAÇAO==========================
 
 @app.route('/movimentacao', methods=['GET', 'POST'])
 def movimentacao():
