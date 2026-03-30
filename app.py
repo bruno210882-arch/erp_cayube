@@ -199,8 +199,14 @@ def entrada_estoque():
 
 @app.route("/fiado")
 def fiado():
-    return render_template("fiado.html")
+    clientes_lista = Cliente.query.filter(Cliente.divida > 0).all()
+    vendas_fiado = Venda.query.filter_by(pago=False).all()
 
+    return render_template(
+        "fiado.html",
+        clientes=clientes_lista,
+        vendas=vendas_fiado
+    )
 
 @app.route('/movimentacao', methods=['GET', 'POST'])
 def movimentacao():
@@ -262,8 +268,14 @@ def relatorio_financeiro():
 
 @app.route("/relatorio_estoque")
 def relatorio_estoque():
-    return render_template("relatorio_estoque.html")
+    produtos = Produto.query.all()
+    movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
 
+    return render_template(
+        "relatorio_estoque.html",
+        produtos=produtos,
+        movimentos=movimentos
+    )
 
 @app.route("/relatorio_lucro")
 def relatorio_lucro():

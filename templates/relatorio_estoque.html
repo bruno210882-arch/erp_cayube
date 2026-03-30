@@ -1,48 +1,46 @@
 {% extends 'base.html' %}
-
 {% block conteudo %}
 
 <h2>📦 Relatório de Estoque</h2>
 
-<h3>Produtos</h3>
-
+<h3>Produtos em estoque</h3>
 <table>
-<tr>
-<th>Nome</th>
-<th>Estoque</th>
-</tr>
-
-{% for p in produtos %}
-<tr>
-<td>{{ p.nome }}</td>
-<td>{{ p.estoque }}</td>
-</tr>
-{% endfor %}
+    <tr>
+        <th>ID</th>
+        <th>Produto</th>
+        <th>Preço</th>
+        <th>Custo</th>
+        <th>Estoque</th>
+    </tr>
+    {% for p in produtos %}
+    <tr>
+        <td>{{ p.id }}</td>
+        <td>{{ p.nome }}</td>
+        <td>R$ {{ "%.2f"|format(p.preco) }}</td>
+        <td>R$ {{ "%.2f"|format(p.custo) }}</td>
+        <td>{{ p.estoque }}</td>
+    </tr>
+    {% endfor %}
 </table>
 
-<hr>
-
-<h3>Movimentações</h3>
-
+<h3>Movimentações de estoque</h3>
 <table>
-<tr>
-<th>Produto</th>
-<th>Tipo</th>
-<th>Quantidade</th>
-<th>Motivo</th>
-<th>Data</th>
-</tr>
-
-{% for m in movimentos %}
-<tr>
-<td>{{ m.produto_id }}</td>
-<td>{{ m.tipo }}</td>
-<td>{{ m.quantidade }}</td>
-<td>{{ m.motivo }}</td>
-<td>{{ m.data.strftime('%d/%m/%Y') }}</td>
-</tr>
-{% endfor %}
-
+    <tr>
+        <th>Data</th>
+        <th>Produto</th>
+        <th>Tipo</th>
+        <th>Quantidade</th>
+        <th>Motivo</th>
+    </tr>
+    {% for m in movimentos %}
+    <tr>
+        <td>{{ m.data.strftime('%d/%m/%Y %H:%M') }}</td>
+        <td>{{ m.produto_id }}</td>
+        <td>{{ m.tipo }}</td>
+        <td>{{ m.quantidade }}</td>
+        <td>{{ m.motivo }}</td>
+    </tr>
+    {% endfor %}
 </table>
 
 {% endblock %}
