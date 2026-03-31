@@ -16,9 +16,9 @@
     <tr>
         <td>{{ p.id }}</td>
         <td>{{ p.nome }}</td>
-        <td>R$ {{ "%.2f"|format(p.preco) }}</td>
-        <td>R$ {{ "%.2f"|format(p.custo) }}</td>
-        <td>{{ p.estoque }}</td>
+        <td>R$ {{ "%.2f"|format(p.preco or 0) }}</td>
+        <td>R$ {{ "%.2f"|format(p.custo or 0) }}</td>
+        <td>{{ p.estoque or 0 }}</td>
     </tr>
     {% endfor %}
 </table>
@@ -27,20 +27,20 @@
 <table>
     <tr>
         <th>Data</th>
-        <th>Produto</th>
+        <th>Produto ID</th>
         <th>Tipo</th>
         <th>Quantidade</th>
         <th>Motivo</th>
     </tr>
-    {% for m, nome_produto in movimentos %}
-<tr>
-    <td>{{ m.data.strftime('%d/%m/%Y %H:%M') }}</td>
-    <td>{{ nome_produto }}</td>
-    <td>{{ m.tipo }}</td>
-    <td>{{ m.quantidade }}</td>
-    <td>{{ m.motivo }}</td>
-</tr>
-{% endfor %}
+    {% for m in movimentos %}
+    <tr>
+        <td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td>
+        <td>{{ m.produto_id }}</td>
+        <td>{{ m.tipo }}</td>
+        <td>{{ m.quantidade }}</td>
+        <td>{{ m.motivo }}</td>
+    </tr>
+    {% endfor %}
 </table>
 
 {% endblock %}

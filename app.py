@@ -247,32 +247,25 @@ def entrada_estoque():
         if not produto:
             return redirect(url_for("entrada_estoque"))
 
-        # 1) Se houve aporte de capital, entra no caixa/conta primeiro
         if origem == "capital_dinheiro":
             saldo.dinheiro += valor_compra
-
-            mov_capital = Movimento(
+            db.session.add(Movimento(
                 tipo="entrada",
                 valor=valor_compra,
                 origem="dinheiro",
                 descricao="Injeção de capital para compra de estoque"
-            )
-            db.session.add(mov_capital)
-
+            ))
             saldo.dinheiro -= valor_compra
             origem_financeira = "dinheiro"
 
         elif origem == "capital_conta":
             saldo.conta += valor_compra
-
-            mov_capital = Movimento(
+            db.session.add(Movimento(
                 tipo="entrada",
                 valor=valor_compra,
                 origem="conta",
                 descricao="Injeção de capital para compra de estoque"
-            )
-            db.session.add(mov_capital)
-
+            ))
             saldo.conta -= valor_compra
             origem_financeira = "conta"
 
@@ -280,32 +273,27 @@ def entrada_estoque():
             saldo.dinheiro -= valor_compra
             origem_financeira = "dinheiro"
 
-        else:  # conta
+        else:
             saldo.conta -= valor_compra
             origem_financeira = "conta"
 
-        # 2) Entrada física do estoque
         produto.estoque = (produto.estoque or 0) + quantidade
 
-        mov_estoque = MovimentoEstoque(
+        db.session.add(MovimentoEstoque(
             produto_id=produto_id,
             tipo="entrada",
             quantidade=quantidade,
             motivo="Compra"
-        )
+        ))
 
-        # 3) Saída financeira da compra
-        mov_financeiro = Movimento(
+        db.session.add(Movimento(
             tipo="saida",
             valor=valor_compra,
             origem=origem_financeira,
             descricao=f"Compra de estoque: {produto.nome} ({quantidade} un.)"
-        )
+        ))
 
-        db.session.add(mov_estoque)
-        db.session.add(mov_financeiro)
         db.session.commit()
-
         return redirect(url_for("entrada_estoque"))
 
     movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
@@ -316,7 +304,6 @@ def entrada_estoque():
         movimentos=movimentos,
         saldo=saldo
     )
-
 # ======================FIADO================================
 
 from sqlalchemy import func
