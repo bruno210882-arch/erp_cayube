@@ -4,11 +4,12 @@
 <h2>🛒 Nova Venda</h2>
 
 <form method="POST">
+
     <label>Produto</label>
     <select name="produto" required>
         {% for p in produtos %}
         <option value="{{ p.id }}">
-            {{ p.nome }} - R$ {{ "%.2f"|format(p.preco) }} - Estoque: {{ p.estoque }}
+            {{ p.nome }} - R$ {{ "%.2f"|format(p.preco) }} (Estoque: {{ p.estoque }})
         </option>
         {% endfor %}
     </select>
@@ -23,7 +24,7 @@
     </select>
 
     <label>Quantidade</label>
-    <input type="number" name="quantidade" min="1" required>
+    <input type="number" name="quantidade" required>
 
     <label>Forma de pagamento</label>
     <select name="forma" required>
@@ -32,7 +33,7 @@
         <option value="fiado">Fiado</option>
     </select>
 
-    <button type="submit">Registrar Venda</button>
+    <button type="submit">Finalizar Venda</button>
 </form>
 
 {% endblock %}

@@ -93,6 +93,7 @@ def index():
 
     vendas = Venda.query.all()
     produtos = Produto.query.all()
+    produtos_baixo_estoque = Produto.query.filter(Produto.estoque <= 5).all()
 
     total_vendas = sum(v.total for v in vendas if v.pago)
     total_fiado = sum(v.total for v in vendas if not v.pago)
@@ -174,12 +175,19 @@ def venda():
         if not produto or not cliente:
             return redirect(url_for("venda"))
 
+        if quantidade <= 0:
+            return "Quantidade inválida."
+
+        # VERIFICA ESTOQUE
+        if (produto.estoque or 0) < quantidade:
+            return "Estoque insuficiente para essa venda."
+
         total = produto.preco * quantidade
 
-        # importante para o fiado aparecer
+        # DEFINE SE É FIADO OU PAGO
         pago = False if forma == "fiado" else True
 
-        nova = Venda(
+        nova_venda = Venda(
             produto_id=produto_id,
             cliente_id=cliente_id,
             quantidade=quantidade,
@@ -188,28 +196,36 @@ def venda():
             forma_pagamento=forma
         )
 
-        if pago:
-            if forma == "dinheiro":
-                saldo.dinheiro += total
-            elif forma == "transferencia":
-                saldo.conta += total
-        else:
-            cliente.divida = (cliente.divida or 0) + total
-
+        # ATUALIZA ESTOQUE
         produto.estoque -= quantidade
 
-        mov = MovimentoEstoque(
+        mov_estoque = MovimentoEstoque(
             produto_id=produto_id,
             tipo="saida",
             quantidade=quantidade,
             motivo="Venda"
         )
 
-        db.session.add(nova)
-        db.session.add(mov)
+        db.session.add(nova_venda)
+        db.session.add(mov_estoque)
+
+        # SE FOI PAGO, ENTRA NO CAIXA
+        if pago:
+            if forma == "dinheiro":
+                saldo.dinheiro += total
+            elif forma == "transferencia":
+                saldo.conta += total
+        else:
+            # SE FOR FIADO, AUMENTA DÍVIDA
+            cliente.divida = (cliente.divida or 0) + total
+
         db.session.commit()
 
-        return redirect(url_for("fiado") if forma == "fiado" else url_for("index"))
+        # REDIRECIONAMENTO
+        if forma == "fiado":
+            return redirect(url_for("fiado"))
+        else:
+            return redirect(url_for("index"))
 
     return render_template(
         "venda.html",
@@ -219,32 +235,86 @@ def venda():
 # ==============ENTRADA ESTOQUE=====================
 @app.route("/entrada_estoque", methods=["GET", "POST"])
 def entrada_estoque():
+    saldo = get_saldo()
+
     if request.method == "POST":
-        produto_id = request.form["produto"]
+        produto_id = int(request.form["produto"])
         quantidade = int(request.form["quantidade"])
+        valor_compra = float(request.form["valor_compra"])
+        origem = request.form["origem"]
 
         produto = Produto.query.get(produto_id)
-        produto.estoque += quantidade
+        if not produto:
+            return redirect(url_for("entrada_estoque"))
 
-        movimento = MovimentoEstoque(
+        # 1) Se houve aporte de capital, entra no caixa/conta primeiro
+        if origem == "capital_dinheiro":
+            saldo.dinheiro += valor_compra
+
+            mov_capital = Movimento(
+                tipo="entrada",
+                valor=valor_compra,
+                origem="dinheiro",
+                descricao="Injeção de capital para compra de estoque"
+            )
+            db.session.add(mov_capital)
+
+            saldo.dinheiro -= valor_compra
+            origem_financeira = "dinheiro"
+
+        elif origem == "capital_conta":
+            saldo.conta += valor_compra
+
+            mov_capital = Movimento(
+                tipo="entrada",
+                valor=valor_compra,
+                origem="conta",
+                descricao="Injeção de capital para compra de estoque"
+            )
+            db.session.add(mov_capital)
+
+            saldo.conta -= valor_compra
+            origem_financeira = "conta"
+
+        elif origem == "dinheiro":
+            saldo.dinheiro -= valor_compra
+            origem_financeira = "dinheiro"
+
+        else:  # conta
+            saldo.conta -= valor_compra
+            origem_financeira = "conta"
+
+        # 2) Entrada física do estoque
+        produto.estoque = (produto.estoque or 0) + quantidade
+
+        mov_estoque = MovimentoEstoque(
             produto_id=produto_id,
             tipo="entrada",
             quantidade=quantidade,
-            motivo="Entrada manual"
+            motivo="Compra"
         )
 
-        db.session.add(movimento)
+        # 3) Saída financeira da compra
+        mov_financeiro = Movimento(
+            tipo="saida",
+            valor=valor_compra,
+            origem=origem_financeira,
+            descricao=f"Compra de estoque: {produto.nome} ({quantidade} un.)"
+        )
+
+        db.session.add(mov_estoque)
+        db.session.add(mov_financeiro)
         db.session.commit()
 
         return redirect(url_for("entrada_estoque"))
 
-    produtos = Produto.query.all()
     movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
 
     return render_template(
         "entrada_estoque.html",
-        produtos=produtos,
-        movimentos=movimentos
+        produtos=Produto.query.all(),
+        movimentos=movimentos,
+        saldo=saldo
     )
 
 # ======================FIADO================================
@@ -369,13 +439,7 @@ def relatorio_financeiro():
 @app.route("/relatorio_estoque")
 def relatorio_estoque():
     produtos = Produto.query.all()
-
-    movimentos = (
-        db.session.query(MovimentoEstoque, Produto.nome)
-        .join(Produto, MovimentoEstoque.produto_id == Produto.id)
-        .order_by(MovimentoEstoque.data.desc())
-        .all()
-    )
+    movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
 
     return render_template(
         "relatorio_estoque.html",
