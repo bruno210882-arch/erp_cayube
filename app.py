@@ -350,37 +350,68 @@ def movimentacao():
         movimentos=movimentos,
         saldo=saldo
     )
-
-@app.route('/relatorio_financeiro')
+#==================RELATORIO FINANCEIRO==========================
+@app.route("/relatorio_financeiro")
 def relatorio_financeiro():
-    saldo = get_saldo()
-    movimentos = Movimento.query.all()
+    movimentos = Movimento.query.order_by(Movimento.data.desc()).all()
 
-    entradas = sum(m.valor for m in movimentos if m.tipo == 'entrada')
-    saidas = sum(m.valor for m in movimentos if m.tipo == 'saida')
+    entradas = sum(m.valor for m in movimentos if m.tipo == "entrada")
+    saidas = sum(m.valor for m in movimentos if m.tipo == "saida")
 
     return render_template(
-        'relatorio_financeiro.html',
+        "financeiro.html",
         movimentos=movimentos,
         entradas=entradas,
         saidas=saidas,
-        saldo=saldo
+        saldo=entradas - saidas
     )
-
+#============relatorio estoque=====================
 @app.route("/relatorio_estoque")
 def relatorio_estoque():
     produtos = Produto.query.all()
-    movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
+
+    movimentos = (
+        db.session.query(MovimentoEstoque, Produto.nome)
+        .join(Produto, MovimentoEstoque.produto_id == Produto.id)
+        .order_by(MovimentoEstoque.data.desc())
+        .all()
+    )
 
     return render_template(
         "relatorio_estoque.html",
         produtos=produtos,
         movimentos=movimentos
     )
-
-@app.route("/relatorio_lucro")
+#===============RELATORIO LUCRO===============================
+@@app.route("/relatorio_lucro")
 def relatorio_lucro():
-    return render_template("relatorio_lucro.html")
+    vendas = (
+        db.session.query(Venda, Produto)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .all()
+    )
+
+    lucro_total = 0
+    relatorio = []
+
+    for venda, produto in vendas:
+        custo_total = (produto.custo or 0) * venda.quantidade
+        lucro = venda.total - custo_total
+        lucro_total += lucro
+
+        relatorio.append({
+            "produto": produto.nome,
+            "quantidade": venda.quantidade,
+            "venda": venda.total,
+            "custo": custo_total,
+            "lucro": lucro
+        })
+
+    return render_template(
+        "lucro.html",
+        relatorio=relatorio,
+        lucro_total=lucro_total
+    )
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(debug=True)
