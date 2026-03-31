@@ -158,7 +158,7 @@ def add_produto():
 
     return redirect(url_for("produtos"))
 
-#==================VENDA========================
+# ==================VENDA========================
 @app.route("/venda", methods=["GET", "POST"])
 def venda():
     if request.method == "POST":
@@ -216,7 +216,7 @@ def venda():
         produtos=Produto.query.all(),
         clientes=Cliente.query.all(),
     )
-#==============ENTRADA ESTOQUE=====================
+# ==============ENTRADA ESTOQUE=====================
 @app.route("/entrada_estoque", methods=["GET", "POST"])
 def entrada_estoque():
     if request.method == "POST":
@@ -350,7 +350,7 @@ def movimentacao():
         movimentos=movimentos,
         saldo=saldo
     )
-#==================RELATORIO FINANCEIRO==========================
+# ==================RELATORIO FINANCEIRO==========================
 @app.route("/relatorio_financeiro")
 def relatorio_financeiro():
     movimentos = Movimento.query.order_by(Movimento.data.desc()).all()
@@ -365,7 +365,7 @@ def relatorio_financeiro():
         saidas=saidas,
         saldo=entradas - saidas
     )
-#============relatorio estoque=====================
+# ============relatorio estoque=====================
 @app.route("/relatorio_estoque")
 def relatorio_estoque():
     produtos = Produto.query.all()
@@ -382,8 +382,8 @@ def relatorio_estoque():
         produtos=produtos,
         movimentos=movimentos
     )
-#===============RELATORIO LUCRO===============================
-@@app.route("/relatorio_lucro")
+# ===============RELATORIO LUCRO===============================
+@app.route("/relatorio_lucro")
 def relatorio_lucro():
     vendas = (
         db.session.query(Venda, Produto)
