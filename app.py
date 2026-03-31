@@ -158,16 +158,65 @@ def add_produto():
 
     return redirect(url_for("produtos"))
 
-
+#==================VENDA========================
 @app.route("/venda", methods=["GET", "POST"])
 def venda():
-    ...
+    if request.method == "POST":
+        produto_id = int(request.form["produto"])
+        cliente_id = int(request.form["cliente"])
+        quantidade = int(request.form["quantidade"])
+        forma = request.form.get("forma")
+
+        produto = Produto.query.get(produto_id)
+        cliente = Cliente.query.get(cliente_id)
+        saldo = get_saldo()
+
+        if not produto or not cliente:
+            return redirect(url_for("venda"))
+
+        total = produto.preco * quantidade
+
+        # importante para o fiado aparecer
+        pago = False if forma == "fiado" else True
+
+        nova = Venda(
+            produto_id=produto_id,
+            cliente_id=cliente_id,
+            quantidade=quantidade,
+            total=total,
+            pago=pago,
+            forma_pagamento=forma
+        )
+
+        if pago:
+            if forma == "dinheiro":
+                saldo.dinheiro += total
+            elif forma == "transferencia":
+                saldo.conta += total
+        else:
+            cliente.divida = (cliente.divida or 0) + total
+
+        produto.estoque -= quantidade
+
+        mov = MovimentoEstoque(
+            produto_id=produto_id,
+            tipo="saida",
+            quantidade=quantidade,
+            motivo="Venda"
+        )
+
+        db.session.add(nova)
+        db.session.add(mov)
+        db.session.commit()
+
+        return redirect(url_for("fiado") if forma == "fiado" else url_for("index"))
+
     return render_template(
         "venda.html",
         produtos=Produto.query.all(),
         clientes=Cliente.query.all(),
     )
-
+#==============ENTRADA ESTOQUE=====================
 @app.route("/entrada_estoque", methods=["GET", "POST"])
 def entrada_estoque():
     if request.method == "POST":
@@ -200,6 +249,8 @@ def entrada_estoque():
 
 # ======================FIADO================================
 
+from sqlalchemy import func
+
 @app.route("/fiado")
 def fiado():
     vendas_fiado = (
@@ -211,14 +262,17 @@ def fiado():
     )
 
     clientes_resumo = (
-        db.session.query(Cliente.nome, db.func.sum(Venda.total).label("total_divida"))
+        db.session.query(
+            Cliente.nome,
+            func.sum(Venda.total).label("total_divida")
+        )
         .join(Venda, Venda.cliente_id == Cliente.id)
         .filter(Venda.pago == False)
         .group_by(Cliente.nome)
         .all()
     )
 
-    total_geral_fiado = sum(item.total_divida for item in clientes_resumo)
+    total_geral_fiado = sum(c.total_divida or 0 for c in clientes_resumo)
 
     return render_template(
         "fiado.html",
