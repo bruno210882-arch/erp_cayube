@@ -211,7 +211,7 @@ def fiado():
     )
 
     clientes_resumo = (
-        db.session.query(Cliente.nome, func.sum(Venda.total).label("total_divida"))
+        db.session.query(Cliente.nome, db.func.sum(Venda.total).label("total_divida"))
         .join(Venda, Venda.cliente_id == Cliente.id)
         .filter(Venda.pago == False)
         .group_by(Cliente.nome)
