@@ -3,18 +3,39 @@
 
 <h2>👥 Clientes</h2>
 
-<form method="POST" action="{{ url_for('add_cliente') }}">
-    <label>Nome</label>
-    <input type="text" name="nome" required>
+<div class="grid-cards">
 
-    <label>Telefone</label>
-    <input type="text" name="telefone">
+    <!-- CADASTRO -->
+    <div class="card">
+        <h3>Cadastrar Cliente</h3>
 
-    <label>Local</label>
-    <input type="text" name="local">
+        <form method="POST" action="{{ url_for('add_cliente') }}">
+            <label>Nome</label>
+            <input type="text" name="nome" required>
 
-    <button type="submit">Cadastrar Cliente</button>
-</form>
+            <label>Telefone</label>
+            <input type="text" name="telefone">
+
+            <label>Local</label>
+            <input type="text" name="local">
+
+            <button type="submit">Cadastrar</button>
+        </form>
+    </div>
+
+    <!-- RESUMO -->
+    <div class="card">
+        <h3>Resumo</h3>
+        <p>Total de Clientes: <b>{{ clientes|length }}</b></p>
+
+        <p>Total em Dívidas:
+            <b class="danger">
+                R$ {{ "%.2f"|format(clientes|sum(attribute='divida')) }}
+            </b>
+        </p>
+    </div>
+
+</div>
 
 <h3>Lista de Clientes</h3>
 
@@ -25,6 +46,7 @@
         <th>Telefone</th>
         <th>Local</th>
         <th>Dívida</th>
+        <th>Ações</th>
     </tr>
 
     {% for c in clientes %}
@@ -33,7 +55,14 @@
         <td>{{ c.nome }}</td>
         <td>{{ c.telefone }}</td>
         <td>{{ c.local }}</td>
-        <td>R$ {{ "%.2f"|format(c.divida or 0) }}</td>
+        <td class="{% if c.divida > 0 %}danger{% else %}success{% endif %}">
+            R$ {{ "%.2f"|format(c.divida or 0) }}
+        </td>
+        <td>
+            <a href="{{ url_for('excluir_cliente', id=c.id) }}">
+                <button style="background:#c62828;">Excluir</button>
+            </a>
+        </td>
     </tr>
     {% endfor %}
 </table>

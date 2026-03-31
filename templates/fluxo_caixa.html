@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+
+<h2>📅 Fluxo de Caixa Diário</h2>
+
+<table>
+    <tr>
+        <th>Data</th>
+        <th>Entradas</th>
+        <th>Saídas</th>
+        <th>Saldo do Dia</th>
+    </tr>
+
+    {% for item in relatorio %}
+    <tr>
+        <td>{{ item.data.strftime('%d/%m/%Y') }}</td>
+        <td class="success">R$ {{ "%.2f"|format(item.entradas) }}</td>
+        <td class="danger">R$ {{ "%.2f"|format(item.saidas) }}</td>
+        <td><b>R$ {{ "%.2f"|format(item.saldo) }}</b></td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

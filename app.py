@@ -1,18 +1,21 @@
-from sqlalchemy import func
 from flask import Flask, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from sqlalchemy import func
+from datetime import datetime, date
+from collections import defaultdict
 import os
 
 app = Flask(__name__)
 
 # ================= DATABASE =================
 uri = os.getenv("DATABASE_URL")
-if not uri:
-    raise RuntimeError("DATABASE_URL não configurado no Render!")
 
-if uri.startswith("postgres://"):
-    uri = uri.replace("postgres://", "postgresql://", 1)
+if uri:
+    if uri.startswith("postgres://"):
+        uri = uri.replace("postgres://", "postgresql://", 1)
+else:
+    # Banco local para testes no computador
+    uri = "sqlite:///erp_cayube.db"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -23,7 +26,7 @@ db = SQLAlchemy(app)
 
 class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100))
+    nome = db.Column(db.String(100), nullable=False)
     local = db.Column(db.String(100))
     divida = db.Column(db.Float, default=0)
     telefone = db.Column(db.String(20))
@@ -31,20 +34,21 @@ class Cliente(db.Model):
 
 class Produto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100))
-    preco = db.Column(db.Float)
-    custo = db.Column(db.Float)
-    estoque = db.Column(db.Integer)
+    nome = db.Column(db.String(100), nullable=False)
+    preco = db.Column(db.Float, nullable=False)
+    custo = db.Column(db.Float, default=0)
+    estoque = db.Column(db.Integer, default=0)
 
 
 class Venda(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"))
-    cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id"))
-    quantidade = db.Column(db.Integer)
-    total = db.Column(db.Float)
-    pago = db.Column(db.Boolean)
+    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id"), nullable=False)
+    quantidade = db.Column(db.Integer, nullable=False)
+    total = db.Column(db.Float, nullable=False)
+    pago = db.Column(db.Boolean, default=True)
     forma_pagamento = db.Column(db.String(20))
+    data = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Saldo(db.Model):
@@ -55,20 +59,30 @@ class Saldo(db.Model):
 
 class Movimento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    tipo = db.Column(db.String(20))
-    valor = db.Column(db.Float)
-    origem = db.Column(db.String(20))
+    tipo = db.Column(db.String(20), nullable=False)  # entrada / saida
+    valor = db.Column(db.Float, nullable=False)
+    origem = db.Column(db.String(20), nullable=False)  # dinheiro / conta
     descricao = db.Column(db.String(200))
     data = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class MovimentoEstoque(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    produto_id = db.Column(db.Integer)
-    tipo = db.Column(db.String(20))
-    quantidade = db.Column(db.Integer)
+    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"), nullable=False)
+    tipo = db.Column(db.String(20), nullable=False)  # entrada / saida
+    quantidade = db.Column(db.Integer, nullable=False)
     motivo = db.Column(db.String(100))
     data = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class FechamentoCaixa(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    data = db.Column(db.Date, nullable=False)
+    saldo_inicial = db.Column(db.Float, default=0)
+    entradas = db.Column(db.Float, default=0)
+    saidas = db.Column(db.Float, default=0)
+    saldo_final = db.Column(db.Float, default=0)
+    observacao = db.Column(db.String(200))
 
 
 # ================= INIT DB =================
@@ -77,6 +91,7 @@ with app.app_context():
 
 
 # ================= FUNÇÕES =================
+
 def get_saldo():
     saldo = Saldo.query.first()
     if not saldo:
@@ -87,13 +102,13 @@ def get_saldo():
 
 
 # ================= DASHBOARD =================
+
 @app.route("/")
 def index():
     saldo = get_saldo()
 
     vendas = Venda.query.all()
     produtos = Produto.query.all()
-    produtos_baixo_estoque = Produto.query.filter(Produto.estoque <= 5).all()
 
     total_vendas = sum(v.total for v in vendas if v.pago)
     total_fiado = sum(v.total for v in vendas if not v.pago)
@@ -106,208 +121,166 @@ def index():
             custo = produto.custo or 0
             lucro_total += v.total - (custo * v.quantidade)
 
+    produtos_baixo_estoque = Produto.query.filter(Produto.estoque <= 5).all()
+
     return render_template(
-    'index.html',
-    saldo=saldo,
-    total_vendas=total_vendas,
-    total_fiado=total_fiado,
-    total_estoque=total_estoque,
-    lucro_total=lucro_total,
-    produtos_baixo_estoque=produtos_baixo_estoque
-)
+        "index.html",
+        saldo=saldo,
+        total_vendas=total_vendas,
+        total_fiado=total_fiado,
+        total_estoque=total_estoque,
+        lucro_total=lucro_total,
+        produtos_baixo_estoque=produtos_baixo_estoque,
+    )
+
 
 # ================= CLIENTES =================
+
 @app.route("/clientes")
 def clientes():
     lista = Cliente.query.all()
     return render_template("clientes.html", clientes=lista)
 
+
 @app.route("/add_cliente", methods=["POST"])
 def add_cliente():
-    nome = request.form["nome"]
-    telefone = request.form["telefone"]
-    local = request.form["local"]
+    try:
+        nome = request.form["nome"]
+        telefone = request.form.get("telefone", "")
+        local = request.form.get("local", "")
 
-    novo = Cliente(nome=nome, telefone=telefone, local=local)
-    db.session.add(novo)
-    db.session.commit()
+        novo = Cliente(nome=nome, telefone=telefone, local=local)
+        db.session.add(novo)
+        db.session.commit()
+        return redirect(url_for("clientes"))
+    except Exception as e:
+        db.session.rollback()
+        return f"Erro ao cadastrar cliente: {str(e)}"
 
+
+@app.route("/excluir_cliente/<int:id>")
+def excluir_cliente(id):
+    cliente = Cliente.query.get(id)
+    if cliente:
+        db.session.delete(cliente)
+        db.session.commit()
     return redirect(url_for("clientes"))
 
 
 # ================= PRODUTOS =================
+
 @app.route("/produtos")
 def produtos():
     lista = Produto.query.all()
     return render_template("produtos.html", produtos=lista)
 
+
 @app.route("/add_produto", methods=["POST"])
 def add_produto():
-    nome = request.form["nome"]
-    preco = float(request.form["preco"])
-    custo = float(request.form["custo"])
-    estoque = int(request.form["estoque"])
+    try:
+        nome = request.form["nome"]
+        preco = float(request.form["preco"])
+        custo = float(request.form["custo"])
+        estoque = int(request.form["estoque"])
 
-    novo = Produto(
-        nome=nome,
-        preco=preco,
-        custo=custo,
-        estoque=estoque
-    )
+        novo = Produto(
+            nome=nome,
+            preco=preco,
+            custo=custo,
+            estoque=estoque
+        )
 
-    db.session.add(novo)
-    db.session.commit()
+        db.session.add(novo)
+        db.session.commit()
+        return redirect(url_for("produtos"))
+    except Exception as e:
+        db.session.rollback()
+        return f"Erro ao cadastrar produto: {str(e)}"
 
+
+@app.route("/excluir_produto/<int:id>")
+def excluir_produto(id):
+    produto = Produto.query.get(id)
+    if produto:
+        db.session.delete(produto)
+        db.session.commit()
     return redirect(url_for("produtos"))
 
-# ==================VENDA========================
+
+# ================= VENDA =================
+
 @app.route("/venda", methods=["GET", "POST"])
 def venda():
     if request.method == "POST":
-        produto_id = int(request.form["produto"])
-        cliente_id = int(request.form["cliente"])
-        quantidade = int(request.form["quantidade"])
-        forma = request.form.get("forma")
+        try:
+            produto_id = int(request.form["produto"])
+            cliente_id = int(request.form["cliente"])
+            quantidade = int(request.form["quantidade"])
+            forma = request.form.get("forma")
 
-        produto = Produto.query.get(produto_id)
-        cliente = Cliente.query.get(cliente_id)
-        saldo = get_saldo()
+            produto = Produto.query.get(produto_id)
+            cliente = Cliente.query.get(cliente_id)
+            saldo = get_saldo()
 
-        if not produto or not cliente:
-            return redirect(url_for("venda"))
+            if not produto:
+                return "Produto não encontrado."
 
-        if quantidade <= 0:
-            return "Quantidade inválida."
+            if not cliente:
+                return "Cliente não encontrado."
 
-        # VERIFICA ESTOQUE
-        if (produto.estoque or 0) < quantidade:
-            return "Estoque insuficiente para essa venda."
+            if quantidade <= 0:
+                return "Quantidade inválida."
 
-        total = produto.preco * quantidade
+            if (produto.estoque or 0) < quantidade:
+                return "Estoque insuficiente para essa venda."
 
-        # DEFINE SE É FIADO OU PAGO
-        pago = False if forma == "fiado" else True
+            total = produto.preco * quantidade
+            pago = False if forma == "fiado" else True
 
-        nova_venda = Venda(
-            produto_id=produto_id,
-            cliente_id=cliente_id,
-            quantidade=quantidade,
-            total=total,
-            pago=pago,
-            forma_pagamento=forma
-        )
+            nova_venda = Venda(
+                produto_id=produto_id,
+                cliente_id=cliente_id,
+                quantidade=quantidade,
+                total=total,
+                pago=pago,
+                forma_pagamento=forma
+            )
 
-        # ATUALIZA ESTOQUE
-        produto.estoque -= quantidade
+            produto.estoque -= quantidade
 
-        mov_estoque = MovimentoEstoque(
-            produto_id=produto_id,
-            tipo="saida",
-            quantidade=quantidade,
-            motivo="Venda"
-        )
+            mov_estoque = MovimentoEstoque(
+                produto_id=produto_id,
+                tipo="saida",
+                quantidade=quantidade,
+                motivo="Venda"
+            )
 
-        db.session.add(nova_venda)
-        db.session.add(mov_estoque)
+            db.session.add(nova_venda)
+            db.session.add(mov_estoque)
 
-        # SE FOI PAGO, ENTRA NO CAIXA
-        if pago:
-            if forma == "dinheiro":
-                saldo.dinheiro += total
-            elif forma == "transferencia":
-                saldo.conta += total
-        else:
-            # SE FOR FIADO, AUMENTA DÍVIDA
-            cliente.divida = (cliente.divida or 0) + total
+            if pago:
+                if forma == "dinheiro":
+                    saldo.dinheiro += total
+                elif forma == "transferencia":
+                    saldo.conta += total
+            else:
+                cliente.divida = (cliente.divida or 0) + total
 
-        db.session.commit()
+            db.session.commit()
+            return redirect(url_for("fiado") if forma == "fiado" else url_for("index"))
 
-        # REDIRECIONAMENTO
-        if forma == "fiado":
-            return redirect(url_for("fiado"))
-        else:
-            return redirect(url_for("index"))
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao registrar venda: {str(e)}"
 
     return render_template(
         "venda.html",
         produtos=Produto.query.all(),
         clientes=Cliente.query.all(),
     )
-# ==============ENTRADA ESTOQUE=====================
-@app.route("/entrada_estoque", methods=["GET", "POST"])
-def entrada_estoque():
-    saldo = get_saldo()
 
-    if request.method == "POST":
-        produto_id = int(request.form["produto"])
-        quantidade = int(request.form["quantidade"])
-        valor_compra = float(request.form["valor_compra"])
-        origem = request.form["origem"]
 
-        produto = Produto.query.get(produto_id)
-        if not produto:
-            return redirect(url_for("entrada_estoque"))
-
-        if origem == "capital_dinheiro":
-            saldo.dinheiro += valor_compra
-            db.session.add(Movimento(
-                tipo="entrada",
-                valor=valor_compra,
-                origem="dinheiro",
-                descricao="Injeção de capital para compra de estoque"
-            ))
-            saldo.dinheiro -= valor_compra
-            origem_financeira = "dinheiro"
-
-        elif origem == "capital_conta":
-            saldo.conta += valor_compra
-            db.session.add(Movimento(
-                tipo="entrada",
-                valor=valor_compra,
-                origem="conta",
-                descricao="Injeção de capital para compra de estoque"
-            ))
-            saldo.conta -= valor_compra
-            origem_financeira = "conta"
-
-        elif origem == "dinheiro":
-            saldo.dinheiro -= valor_compra
-            origem_financeira = "dinheiro"
-
-        else:
-            saldo.conta -= valor_compra
-            origem_financeira = "conta"
-
-        produto.estoque = (produto.estoque or 0) + quantidade
-
-        db.session.add(MovimentoEstoque(
-            produto_id=produto_id,
-            tipo="entrada",
-            quantidade=quantidade,
-            motivo="Compra"
-        ))
-
-        db.session.add(Movimento(
-            tipo="saida",
-            valor=valor_compra,
-            origem=origem_financeira,
-            descricao=f"Compra de estoque: {produto.nome} ({quantidade} un.)"
-        ))
-
-        db.session.commit()
-        return redirect(url_for("entrada_estoque"))
-
-    movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
-
-    return render_template(
-        "entrada_estoque.html",
-        produtos=Produto.query.all(),
-        movimentos=movimentos,
-        saldo=saldo
-    )
-# ======================FIADO================================
-
-from sqlalchemy import func
+# ================= FIADO =================
 
 @app.route("/fiado")
 def fiado():
@@ -338,7 +311,6 @@ def fiado():
         clientes_resumo=clientes_resumo,
         total_geral_fiado=total_geral_fiado
     )
-# ===========RECEBER VENDA==================================
 
 
 @app.route("/receber_venda/<int:venda_id>", methods=["POST"])
@@ -365,50 +337,137 @@ def receber_venda(venda_id):
 
     return redirect(url_for("fiado"))
 
-# ====================MOVIMENTAÇAO==========================
 
-@app.route('/movimentacao', methods=['GET', 'POST'])
+# ================= CAIXA / MOVIMENTAÇÃO =================
+
+@app.route("/movimentacao", methods=["GET", "POST"])
 def movimentacao():
     saldo = get_saldo()
 
-    if request.method == 'POST':
-        tipo = request.form['tipo']
-        valor = float(request.form['valor'])
-        origem = request.form['origem']
-        descricao = request.form['descricao']
+    if request.method == "POST":
+        try:
+            tipo = request.form["tipo"]
+            valor = float(request.form["valor"])
+            origem = request.form["origem"]
+            descricao = request.form["descricao"]
 
-        movimento = Movimento(
-            tipo=tipo,
-            valor=valor,
-            origem=origem,
-            descricao=descricao
-        )
-
-        db.session.add(movimento)
-
-        # Atualiza saldo
-        if tipo == 'entrada':
-            if origem == 'dinheiro':
-                saldo.dinheiro += valor
+            if tipo == "entrada":
+                if origem == "dinheiro":
+                    saldo.dinheiro += valor
+                else:
+                    saldo.conta += valor
             else:
-                saldo.conta += valor
-        else:  # saída
-            if origem == 'dinheiro':
-                saldo.dinheiro -= valor
-            else:
-                saldo.conta -= valor
+                if origem == "dinheiro":
+                    saldo.dinheiro -= valor
+                else:
+                    saldo.conta -= valor
 
-        db.session.commit()
-        return redirect(url_for('movimentacao'))
+            movimento = Movimento(
+                tipo=tipo,
+                valor=valor,
+                origem=origem,
+                descricao=descricao
+            )
+
+            db.session.add(movimento)
+            db.session.commit()
+            return redirect(url_for("movimentacao"))
+
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao registrar movimentação: {str(e)}"
 
     movimentos = Movimento.query.order_by(Movimento.data.desc()).all()
 
     return render_template(
-        'movimentacao.html',
+        "movimentacao.html",
         movimentos=movimentos,
         saldo=saldo
     )
-# ==================RELATORIO FINANCEIRO==========================
+
+
+# ================= ENTRADA DE ESTOQUE =================
+
+@app.route("/entrada_estoque", methods=["GET", "POST"])
+def entrada_estoque():
+    saldo = get_saldo()
+
+    if request.method == "POST":
+        try:
+            produto_id = int(request.form["produto"])
+            quantidade = int(request.form["quantidade"])
+            valor_compra = float(request.form["valor_compra"])
+            origem = request.form["origem"]
+
+            produto = Produto.query.get(produto_id)
+            if not produto:
+                return redirect(url_for("entrada_estoque"))
+
+            if origem == "capital_dinheiro":
+                saldo.dinheiro += valor_compra
+                db.session.add(Movimento(
+                    tipo="entrada",
+                    valor=valor_compra,
+                    origem="dinheiro",
+                    descricao="Injeção de capital para compra de estoque"
+                ))
+                saldo.dinheiro -= valor_compra
+                origem_financeira = "dinheiro"
+
+            elif origem == "capital_conta":
+                saldo.conta += valor_compra
+                db.session.add(Movimento(
+                    tipo="entrada",
+                    valor=valor_compra,
+                    origem="conta",
+                    descricao="Injeção de capital para compra de estoque"
+                ))
+                saldo.conta -= valor_compra
+                origem_financeira = "conta"
+
+            elif origem == "dinheiro":
+                saldo.dinheiro -= valor_compra
+                origem_financeira = "dinheiro"
+
+            else:
+                saldo.conta -= valor_compra
+                origem_financeira = "conta"
+
+            produto.estoque = (produto.estoque or 0) + quantidade
+
+            db.session.add(MovimentoEstoque(
+                produto_id=produto_id,
+                tipo="entrada",
+                quantidade=quantidade,
+                motivo="Compra"
+            ))
+
+            db.session.add(Movimento(
+                tipo="saida",
+                valor=valor_compra,
+                origem=origem_financeira,
+                descricao=f"Compra de estoque: {produto.nome} ({quantidade} un.)"
+            ))
+
+            db.session.commit()
+            return redirect(url_for("entrada_estoque"))
+
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao registrar entrada de estoque: {str(e)}"
+
+    movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
+
+    return render_template(
+        "entrada_estoque.html",
+        produtos=Produto.query.all(),
+        movimentos=movimentos,
+        saldo=saldo
+    )
+
+
+# ================= RELATÓRIO FINANCEIRO =================
+
 @app.route("/relatorio_financeiro")
 def relatorio_financeiro():
     saldo = get_saldo()
@@ -424,7 +483,10 @@ def relatorio_financeiro():
         entradas=total_entradas,
         saidas=total_saidas
     )
-# ============relatorio estoque=====================
+
+
+# ================= RELATÓRIO ESTOQUE =================
+
 @app.route("/relatorio_estoque")
 def relatorio_estoque():
     produtos = Produto.query.all()
@@ -435,7 +497,10 @@ def relatorio_estoque():
         produtos=produtos,
         movimentos=movimentos
     )
-# ===============RELATORIO LUCRO===============================
+
+
+# ================= RELATÓRIO LUCRO =================
+
 @app.route("/relatorio_lucro")
 def relatorio_lucro():
     produtos = Produto.query.all()
@@ -460,6 +525,105 @@ def relatorio_lucro():
         })
 
     return render_template("relatorio_lucro.html", relatorio=relatorio)
+
+
+# ================= FLUXO DE CAIXA =================
+
+@app.route("/fluxo_caixa")
+def fluxo_caixa():
+    movimentos = Movimento.query.order_by(Movimento.data.desc()).all()
+
+    fluxo_por_dia = defaultdict(lambda: {"entradas": 0, "saidas": 0})
+
+    for m in movimentos:
+        dia = m.data.date()
+        if m.tipo == "entrada":
+            fluxo_por_dia[dia]["entradas"] += m.valor
+        elif m.tipo == "saida":
+            fluxo_por_dia[dia]["saidas"] += m.valor
+
+    relatorio = []
+    for dia, valores in fluxo_por_dia.items():
+        saldo = valores["entradas"] - valores["saidas"]
+        relatorio.append({
+            "data": dia,
+            "entradas": valores["entradas"],
+            "saidas": valores["saidas"],
+            "saldo": saldo
+        })
+
+    relatorio.sort(key=lambda x: x["data"], reverse=True)
+
+    return render_template("fluxo_caixa.html", relatorio=relatorio)
+
+
+# ================= FECHAMENTO DE CAIXA =================
+
+@app.route("/fechamento_caixa", methods=["GET", "POST"])
+def fechamento_caixa():
+    hoje = date.today()
+    saldo = get_saldo()
+
+    movimentos_hoje = Movimento.query.filter(
+        db.func.date(Movimento.data) == hoje
+    ).all()
+
+    entradas = sum(m.valor for m in movimentos_hoje if m.tipo == "entrada")
+    saidas = sum(m.valor for m in movimentos_hoje if m.tipo == "saida")
+
+    saldo_final = (saldo.dinheiro or 0) + (saldo.conta or 0)
+
+    fechamento_existente = FechamentoCaixa.query.filter_by(data=hoje).first()
+
+    if request.method == "POST":
+        try:
+            observacao = request.form.get("observacao", "")
+            saldo_inicial = float(request.form.get("saldo_inicial", 0))
+
+            if fechamento_existente:
+                fechamento_existente.saldo_inicial = saldo_inicial
+                fechamento_existente.entradas = entradas
+                fechamento_existente.saidas = saidas
+                fechamento_existente.saldo_final = saldo_final
+                fechamento_existente.observacao = observacao
+            else:
+                novo = FechamentoCaixa(
+                    data=hoje,
+                    saldo_inicial=saldo_inicial,
+                    entradas=entradas,
+                    saidas=saidas,
+                    saldo_final=saldo_final,
+                    observacao=observacao
+                )
+                db.session.add(novo)
+
+            db.session.commit()
+            return redirect(url_for("fechamento_caixa"))
+
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao salvar fechamento de caixa: {str(e)}"
+
+    return render_template(
+        "fechamento_caixa.html",
+        hoje=hoje,
+        entradas=entradas,
+        saidas=saidas,
+        saldo_final=saldo_final,
+        fechamento=fechamento_existente
+    )
+
+
+# ================= RESET LOCAL / TESTES =================
+
+@app.route("/resetar_banco")
+def resetar_banco():
+    db.drop_all()
+    db.create_all()
+    return "Banco resetado com sucesso!"
+
+
 # ================= RUN =================
+
 if __name__ == "__main__":
     app.run(debug=True)
