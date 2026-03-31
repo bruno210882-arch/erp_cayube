@@ -107,13 +107,14 @@ def index():
             lucro_total += v.total - (custo * v.quantidade)
 
     return render_template(
-        "index.html",
-        saldo=saldo,
-        total_vendas=total_vendas,
-        total_fiado=total_fiado,
-        total_estoque=total_estoque,
-        lucro_total=lucro_total,
-    )
+    'index.html',
+    saldo=saldo,
+    total_vendas=total_vendas,
+    total_fiado=total_fiado,
+    total_estoque=total_estoque,
+    lucro_total=lucro_total,
+    produtos_baixo_estoque=produtos_baixo_estoque
+)
 
 # ================= CLIENTES =================
 @app.route("/clientes")
