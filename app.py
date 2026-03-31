@@ -410,17 +410,18 @@ def movimentacao():
 # ==================RELATORIO FINANCEIRO==========================
 @app.route("/relatorio_financeiro")
 def relatorio_financeiro():
+    saldo = get_saldo()
     movimentos = Movimento.query.order_by(Movimento.data.desc()).all()
 
-    entradas = sum(m.valor for m in movimentos if m.tipo == "entrada")
-    saidas = sum(m.valor for m in movimentos if m.tipo == "saida")
+    total_entradas = sum(m.valor for m in movimentos if m.tipo == "entrada")
+    total_saidas = sum(m.valor for m in movimentos if m.tipo == "saida")
 
     return render_template(
-        "financeiro.html",
+        "relatorio_financeiro.html",
+        saldo=saldo,
         movimentos=movimentos,
-        entradas=entradas,
-        saidas=saidas,
-        saldo=entradas - saidas
+        entradas=total_entradas,
+        saidas=total_saidas
     )
 # ============relatorio estoque=====================
 @app.route("/relatorio_estoque")
