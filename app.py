@@ -436,33 +436,28 @@ def relatorio_estoque():
 # ===============RELATORIO LUCRO===============================
 @app.route("/relatorio_lucro")
 def relatorio_lucro():
-    vendas = (
-        db.session.query(Venda, Produto)
-        .join(Produto, Venda.produto_id == Produto.id)
-        .all()
-    )
+    produtos = Produto.query.all()
+    vendas = Venda.query.all()
 
-    lucro_total = 0
     relatorio = []
 
-    for venda, produto in vendas:
-        custo_total = (produto.custo or 0) * venda.quantidade
-        lucro = venda.total - custo_total
-        lucro_total += lucro
+    for p in produtos:
+        vendas_produto = [v for v in vendas if v.produto_id == p.id]
+
+        total_vendido = sum(v.quantidade for v in vendas_produto)
+        faturamento = sum(v.total for v in vendas_produto)
+        custo_total = total_vendido * (p.custo or 0)
+        lucro = faturamento - custo_total
 
         relatorio.append({
-            "produto": produto.nome,
-            "quantidade": venda.quantidade,
-            "venda": venda.total,
+            "produto": p.nome,
+            "vendido": total_vendido,
+            "faturamento": faturamento,
             "custo": custo_total,
             "lucro": lucro
         })
 
-    return render_template(
-        "lucro.html",
-        relatorio=relatorio,
-        lucro_total=lucro_total
-    )
+    return render_template("relatorio_lucro.html", relatorio=relatorio)
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(debug=True)
