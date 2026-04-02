@@ -774,13 +774,12 @@ def backup():
 
 
 # ================= RESET =================
-@app.route("/resetar_banco")
-def resetar_banco():
-    db.drop_all()
-    db.create_all()
-    return "Banco resetado com sucesso!"
-
-
+# @app.route("/resetar_banco")
+# @login_obrigatorio
+# def resetar_banco():
+#    db.drop_all()
+#    db.create_all()
+#    return "Banco resetado com sucesso!"
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(debug=True)
