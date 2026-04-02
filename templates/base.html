@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <title>ERP Cayube</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#1e1e2f">
 
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
@@ -112,43 +112,6 @@
             box-shadow: 0 4px 14px rgba(0,0,0,0.08);
         }
 
-        button {
-            background: #00c853;
-            color: white;
-            padding: 12px 18px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            margin-top: 15px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        button:hover {
-            background: #009b40;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            background: white;
-            border-radius: 14px;
-            overflow: hidden;
-        }
-
-        table th {
-            background: #1e1e2f;
-            color: white;
-            text-align: left;
-            padding: 14px;
-        }
-
-        table td {
-            padding: 13px 14px;
-            border-bottom: 1px solid #eceff3;
-        }
-
         @media (max-width: 900px) {
             .sidebar {
                 position: relative;
@@ -167,7 +130,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header">
-        <img src="{{ url_for('static', filename='logo.png') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
         <h2>ERP Cayube</h2>
         <p>Cocadas e Doces</p>
     </div>
@@ -209,10 +172,15 @@
     </div>
 
     <div class="content-card">
-        {% block conteudo %}
-        {% endblock %}
+        {% block conteudo %}{% endblock %}
     </div>
 </div>
 
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js')
+    .then(() => console.log('App pronto'))
+}
+</script>
 </body>
 </html>
