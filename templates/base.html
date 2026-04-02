@@ -1,12 +1,9 @@
-
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <title>ERP Cayube</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <meta name="theme-color" content="#1e1e2f">
 
     <style>
         * {
@@ -33,37 +30,6 @@
             box-shadow: 2px 0 12px rgba(0,0,0,0.15);
         }
 
-{% if session.get('usuario_nome') %}
-    <p style="text-align:center; color:#ccc;">
-        Usuário: {{ session.get('usuario_nome') }}
-    </p>
-{% endif %}
-
-{{% if session.get('usuario_id') %}
-
-    <a href="{{ url_for('index') }}">🏠 Início</a>
-    <a href="{{ url_for('clientes') }}">👥 Clientes</a>
-    <a href="{{ url_for('produtos') }}">📦 Produtos</a>
-    <a href="{{ url_for('venda') }}">🛒 Venda</a>
-    <a href="{{ url_for('fiado') }}">💳 Fiado</a>
-    <a href="{{ url_for('movimentacao') }}">💰 Caixa</a>
-    <a href="{{ url_for('entrada_estoque') }}">📥 Entrada Estoque</a>
-    <a href="{{ url_for('relatorio_financeiro') }}">📊 Financeiro</a>
-    <a href="{{ url_for('relatorio_estoque') }}">📦 Relatório Estoque</a>
-    <a href="{{ url_for('relatorio_lucro') }}">💸 Lucro</a>
-    <a href="{{ url_for('fluxo_caixa') }}">📅 Fluxo de Caixa</a>
-    <a href="{{ url_for('fechamento_caixa') }}">🔒 Fechamento Caixa</a>
-
-    {% if session.get('usuario_nivel') == 'admin' %}
-        <a href="{{ url_for('usuarios') }}">👤 Cadastro de Usuários</a>
-        <a href="{{ url_for('backup') }}">💾 Backup</a>
-    {% endif %}
-
-    <a href="{{ url_for('logout') }}">🚪 Sair</a>
-
-{% else %}
-    <a href="{{ url_for('login') }}">🔐 Login</a>
-{% endif %}
         .sidebar-header {
             text-align: center;
             padding: 0 15px 20px;
@@ -91,6 +57,13 @@
             margin: 6px 0 0;
             font-size: 13px;
             color: #bbb;
+        }
+
+        .user-info {
+            text-align: center;
+            color: #ccc;
+            margin-bottom: 15px;
+            font-size: 14px;
         }
 
         .sidebar a {
@@ -124,7 +97,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 15px;
         }
 
         .topbar h1 {
@@ -133,85 +105,11 @@
             color: #1e1e2f;
         }
 
-        .topbar p {
-            margin: 4px 0 0;
-            color: #666;
-            font-size: 14px;
-        }
-
         .content-card {
             background: white;
             border-radius: 18px;
             padding: 24px;
             box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-        }
-
-        .grid-cards {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 18px;
-            margin-bottom: 20px;
-        }
-
-        .card {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            min-width: 220px;
-            flex: 1;
-        }
-
-        .card h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
-            font-size: 18px;
-            color: #1e1e2f;
-        }
-
-        .card p {
-            margin: 0;
-            font-size: 22px;
-            font-weight: bold;
-            color: #00a152;
-        }
-
-        h2 {
-            margin-top: 0;
-            margin-bottom: 20px;
-            color: #1e1e2f;
-        }
-
-        h3 {
-            color: #1e1e2f;
-            margin-top: 25px;
-        }
-
-        form {
-            margin-bottom: 24px;
-        }
-
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 6px;
-            margin-top: 12px;
-            color: #333;
-        }
-
-        input, select, textarea {
-            width: 100%;
-            padding: 11px 12px;
-            border: 1px solid #d7dce2;
-            border-radius: 10px;
-            font-size: 14px;
-            background: #fafbfc;
-            outline: none;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            border-color: #00c853;
-            background: #fff;
         }
 
         button {
@@ -224,7 +122,6 @@
             margin-top: 15px;
             font-size: 14px;
             font-weight: bold;
-            transition: 0.2s;
         }
 
         button:hover {
@@ -236,9 +133,8 @@
             border-collapse: collapse;
             margin-top: 15px;
             background: white;
-            overflow: hidden;
             border-radius: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            overflow: hidden;
         }
 
         table th {
@@ -246,37 +142,11 @@
             color: white;
             text-align: left;
             padding: 14px;
-            font-size: 14px;
         }
 
         table td {
             padding: 13px 14px;
             border-bottom: 1px solid #eceff3;
-            font-size: 14px;
-        }
-
-        table tr:hover td {
-            background: #f8fafb;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: bold;
-            background: #e8f5e9;
-            color: #1b5e20;
-        }
-
-        .danger {
-            color: #c62828;
-            font-weight: bold;
-        }
-
-        .success {
-            color: #2e7d32;
-            font-weight: bold;
         }
 
         @media (max-width: 900px) {
@@ -290,61 +160,59 @@
                 margin-left: 0;
                 padding: 16px;
             }
-
-            .topbar {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .card {
-                min-width: 100%;
-            }
         }
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
-            <h2>ERP Cayube</h2>
-            <p>Cocadas e Doces</p>
-        </div>
-
-       <a href="{{ url_for('index') }}">🏠 Início</a>
-    <a href="{{ url_for('clientes') }}">👥 Clientes</a>
-    <a href="{{ url_for('produtos') }}">📦 Produtos</a>
-    <a href="{{ url_for('venda') }}">🛒 Venda</a>
-    <a href="{{ url_for('fiado') }}">💳 Fiado</a>
-    <a href="{{ url_for('movimentacao') }}">💰 Caixa</a>
-    <a href="{{ url_for('entrada_estoque') }}">📥 Entrada Estoque</a>
-    <a href="{{ url_for('relatorio_financeiro') }}">📊 Financeiro</a>
-    <a href="{{ url_for('relatorio_estoque') }}">📦 Relatório Estoque</a>
-    <a href="{{ url_for('relatorio_lucro') }}">💸 Lucro</a>
-    <a href="{{ url_for('fluxo_caixa') }}">📅 Fluxo de Caixa</a>
-    <a href="{{ url_for('fechamento_caixa') }}">🔒 Fechamento Caixa</a>
+<div class="sidebar">
+    <div class="sidebar-header">
+        <img src="{{ url_for('static', filename='logo.png') }}">
+        <h2>ERP Cayube</h2>
+        <p>Cocadas e Doces</p>
     </div>
 
-    <div class="main">
-        <div class="topbar">
-            <div>
-                <h1>Cayube Cocadas e Doces</h1>
-                <p>Sistema de gestão</p>
-            </div>
-            <div class="badge">Sistema Online</div>
+    {% if session.get('usuario_nome') %}
+        <div class="user-info">
+            Usuário: {{ session.get('usuario_nome') }}
         </div>
+    {% endif %}
 
-        <div class="content-card">
-            {% block conteudo %}
-            {% endblock %}
-        </div>
+    {% if session.get('usuario_id') %}
+        <a href="{{ url_for('index') }}">🏠 Início</a>
+        <a href="{{ url_for('clientes') }}">👥 Clientes</a>
+        <a href="{{ url_for('produtos') }}">📦 Produtos</a>
+        <a href="{{ url_for('venda') }}">🛒 Venda</a>
+        <a href="{{ url_for('fiado') }}">💳 Fiado</a>
+        <a href="{{ url_for('movimentacao') }}">💰 Caixa</a>
+        <a href="{{ url_for('entrada_estoque') }}">📥 Entrada Estoque</a>
+        <a href="{{ url_for('relatorio_financeiro') }}">📊 Financeiro</a>
+        <a href="{{ url_for('relatorio_estoque') }}">📦 Relatório Estoque</a>
+        <a href="{{ url_for('relatorio_lucro') }}">💸 Lucro</a>
+        <a href="{{ url_for('fluxo_caixa') }}">📅 Fluxo de Caixa</a>
+        <a href="{{ url_for('fechamento_caixa') }}">🔒 Fechamento Caixa</a>
+
+        {% if session.get('usuario_nivel') == 'admin' %}
+            <a href="{{ url_for('usuarios') }}">👤 Cadastro de Usuários</a>
+            <a href="{{ url_for('backup') }}">💾 Backup</a>
+        {% endif %}
+
+        <a href="{{ url_for('logout') }}">🚪 Sair</a>
+    {% else %}
+        <a href="{{ url_for('login') }}">🔐 Login</a>
+    {% endif %}
+</div>
+
+<div class="main">
+    <div class="topbar">
+        <h1>Sistema de Gestão</h1>
     </div>
 
-    <script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/static/sw.js')
-        .then(() => console.log('App pronto'))
-    }
-    </script>
+    <div class="content-card">
+        {% block conteudo %}
+        {% endblock %}
+    </div>
+</div>
+
 </body>
 </html>
