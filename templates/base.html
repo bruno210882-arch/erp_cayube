@@ -1,3 +1,4 @@
+
 <<!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -32,8 +33,36 @@
             box-shadow: 2px 0 12px rgba(0,0,0,0.15);
         }
 
-{% if session.get('usuario_nivel') == 'admin' %}
-    <a href="/usuarios">👤 Usuários</a>
+{% if session.get('usuario_nome') %}
+    <p style="text-align:center; color:#ccc;">
+        Usuário: {{ session.get('usuario_nome') }}
+    </p>
+{% endif %}
+
+{{% if session.get('usuario_id') %}
+
+    <a href="{{ url_for('index') }}">🏠 Início</a>
+    <a href="{{ url_for('clientes') }}">👥 Clientes</a>
+    <a href="{{ url_for('produtos') }}">📦 Produtos</a>
+    <a href="{{ url_for('venda') }}">🛒 Venda</a>
+    <a href="{{ url_for('fiado') }}">💳 Fiado</a>
+    <a href="{{ url_for('movimentacao') }}">💰 Caixa</a>
+    <a href="{{ url_for('entrada_estoque') }}">📥 Entrada Estoque</a>
+    <a href="{{ url_for('relatorio_financeiro') }}">📊 Financeiro</a>
+    <a href="{{ url_for('relatorio_estoque') }}">📦 Relatório Estoque</a>
+    <a href="{{ url_for('relatorio_lucro') }}">💸 Lucro</a>
+    <a href="{{ url_for('fluxo_caixa') }}">📅 Fluxo de Caixa</a>
+    <a href="{{ url_for('fechamento_caixa') }}">🔒 Fechamento Caixa</a>
+
+    {% if session.get('usuario_nivel') == 'admin' %}
+        <a href="{{ url_for('usuarios') }}">👤 Cadastro de Usuários</a>
+        <a href="{{ url_for('backup') }}">💾 Backup</a>
+    {% endif %}
+
+    <a href="{{ url_for('logout') }}">🚪 Sair</a>
+
+{% else %}
+    <a href="{{ url_for('login') }}">🔐 Login</a>
 {% endif %}
         .sidebar-header {
             text-align: center;
@@ -282,17 +311,18 @@
             <p>Cocadas e Doces</p>
         </div>
 
-        <a href="{{ url_for('index') }}">🏠 Início</a>
-        <a href="{{ url_for('clientes') }}">👥 Clientes</a>
-        <a href="{{ url_for('produtos') }}">📦 Produtos</a>
-        <a href="{{ url_for('venda') }}">🛒 Venda</a>
-        <a href="{{ url_for('fiado') }}">💳 Fiado</a>
-        <a href="{{ url_for('movimentacao') }}">💰 Caixa</a>
-        <a href="{{ url_for('entrada_estoque') }}">📥 Entrada Estoque</a>
-        <a href="{{ url_for('relatorio_financeiro') }}">📊 Financeiro</a>
-        <a href="{{ url_for('relatorio_estoque') }}">📦 Estoque</a>
-        <a href="{{ url_for('relatorio_lucro') }}">💸 Lucro</a>
-        <a href="/backup" class="btn">💾 Backup</a>
+       <a href="{{ url_for('index') }}">🏠 Início</a>
+    <a href="{{ url_for('clientes') }}">👥 Clientes</a>
+    <a href="{{ url_for('produtos') }}">📦 Produtos</a>
+    <a href="{{ url_for('venda') }}">🛒 Venda</a>
+    <a href="{{ url_for('fiado') }}">💳 Fiado</a>
+    <a href="{{ url_for('movimentacao') }}">💰 Caixa</a>
+    <a href="{{ url_for('entrada_estoque') }}">📥 Entrada Estoque</a>
+    <a href="{{ url_for('relatorio_financeiro') }}">📊 Financeiro</a>
+    <a href="{{ url_for('relatorio_estoque') }}">📦 Relatório Estoque</a>
+    <a href="{{ url_for('relatorio_lucro') }}">💸 Lucro</a>
+    <a href="{{ url_for('fluxo_caixa') }}">📅 Fluxo de Caixa</a>
+    <a href="{{ url_for('fechamento_caixa') }}">🔒 Fechamento Caixa</a>
     </div>
 
     <div class="main">
