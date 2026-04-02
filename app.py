@@ -39,11 +39,6 @@ def login_obrigatorio(f):
 # ------------------------
 # MODELS
 # ------------------------
-class Usuario(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100))
-    usuario = db.Column(db.String(50), unique=True)
-    senha = db.Column(db.String(200))
 
 class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
