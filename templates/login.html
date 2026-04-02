@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - ERP Cayube</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #00c853);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .login-box {
+            background: white;
+            padding: 35px;
+            border-radius: 18px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 380px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #1e1e2f;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            margin-top: 12px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 20px;
+            padding: 12px;
+            background: #00c853;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #009b40;
+        }
+
+        .erro {
+            color: #c62828;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2>🔐 ERP Cayube</h2>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="erro">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <label>Usuário</label>
+            <input type="text" name="usuario" required>
+
+            <label>Senha</label>
+            <input type="password" name="senha" required>
+
+            <button type="submit">Entrar</button>
+        </form>
+    </div>
+</body>
+</html>
