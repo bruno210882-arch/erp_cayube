@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+
+<h2>👤 Usuários</h2>
+
+<form method="POST">
+    <label>Nome</label>
+    <input type="text" name="nome" required>
+
+    <label>Usuário</label>
+    <input type="text" name="usuario" required>
+
+    <label>Senha</label>
+    <input type="password" name="senha" required>
+
+    <label>Nível</label>
+    <select name="nivel">
+        <option value="admin">Admin</option>
+        <option value="funcionario">Funcionário</option>
+    </select>
+
+    <button type="submit">Cadastrar</button>
+</form>
+
+<h3>Lista de Usuários</h3>
+<table>
+    <tr>
+        <th>Nome</th>
+        <th>Usuário</th>
+        <th>Nível</th>
+        <th>Alterar Senha</th>
+        <th>Excluir</th>
+    </tr>
+
+    {% for u in usuarios %}
+    <tr>
+        <td>{{ u.nome }}</td>
+        <td>{{ u.usuario }}</td>
+        <td>{{ u.nivel }}</td>
+
+        <td>
+            <form method="POST" action="/alterar_senha/{{ u.id }}">
+                <input type="password" name="nova_senha" placeholder="Nova senha">
+                <button type="submit">Alterar</button>
+            </form>
+        </td>
+
+        <td>
+            <a href="/excluir_usuario/{{ u.id }}">Excluir</a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

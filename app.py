@@ -83,6 +83,13 @@ class Caixa(db.Model):
     motivo = db.Column(db.String(100))
     data = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Usuario(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100))
+    usuario = db.Column(db.String(50), unique=True)
+    senha = db.Column(db.String(200))
+    nivel = db.Column(db.String(20))  # admin ou funcionario
+
 # ------------------------
 # LOGIN
 # ------------------------
@@ -94,29 +101,12 @@ def login():
         if usuario and check_password_hash(usuario.senha, request.form["senha"]):
             session["usuario_id"] = usuario.id
             session["usuario_nome"] = usuario.nome
+            session["usuario_nivel"] = usuario.nivel
             return redirect(url_for("index"))
         else:
             flash("Usuário ou senha inválidos")
 
     return render_template("login.html")
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-@app.route("/criar_usuario")
-def criar_usuario():
-    if Usuario.query.filter_by(usuario="admin").first():
-        return "Usuário já existe"
-
-    senha_hash = generate_password_hash("123456")
-
-    user = Usuario(nome="Administrador", usuario="admin", senha=senha_hash)
-    db.session.add(user)
-    db.session.commit()
-
-    return "Usuário admin criado! Login: admin Senha: 123456"
 
 # ------------------------
 # DASHBOARD
@@ -326,11 +316,90 @@ def criar_tabelas():
 # ------------------------
 # APAGAR BANCO
 # ------------------------
-@app.route("/resetar_banco")
-def resetar_banco():
-    db.drop_all()
-    db.create_all()
-    return "Banco resetado com sucesso!" 
+# @app.route("/resetar_banco")
+# def resetar_banco():
+#    db.drop_all()
+#    db.create_all()
+#    return "Banco resetado com sucesso!" 
+# ------------------------
+# USUARIO
+# ------------------------
+
+@app.route("/usuarios", methods=["GET", "POST"])
+@login_obrigatorio
+def usuarios():
+    if session.get("usuario_nivel") != "admin":
+        return "Acesso negado"
+
+    if request.method == "POST":
+        nome = request.form["nome"]
+        usuario = request.form["usuario"]
+        senha = generate_password_hash(request.form["senha"])
+        nivel = request.form["nivel"]
+
+        novo = Usuario(
+            nome=nome,
+            usuario=usuario,
+            senha=senha,
+            nivel=nivel
+        )
+
+        db.session.add(novo)
+        db.session.commit()
+        return redirect(url_for("usuarios"))
+
+    lista = Usuario.query.all()
+    return render_template("usuarios.html", usuarios=lista)
+# ------------------------
+# ALTERAR SENHA
+# ------------------------
+
+@app.route("/alterar_senha/<int:id>", methods=["POST"])
+@login_obrigatorio
+def alterar_senha(id):
+    if session.get("usuario_nivel") != "admin":
+        return "Acesso negado"
+
+    usuario = Usuario.query.get(id)
+    usuario.senha = generate_password_hash(request.form["nova_senha"])
+    db.session.commit()
+
+    return redirect(url_for("usuarios"))
+# ------------------------
+# EXCLUIR USUARIO
+# ------------------------
+
+@app.route("/excluir_usuario/<int:id>")
+@login_obrigatorio
+def excluir_usuario(id):
+    if session.get("usuario_nivel") != "admin":
+        return "Acesso negado"
+
+    usuario = Usuario.query.get(id)
+    db.session.delete(usuario)
+    db.session.commit()
+
+    return redirect(url_for("usuarios"))
+
+
+@app.route("/criar_admin")
+def criar_admin():
+    if Usuario.query.filter_by(usuario="admin").first():
+        return "Admin já existe"
+
+    senha = generate_password_hash("123456")
+
+    admin = Usuario(
+        nome="Administrador",
+        usuario="admin",
+        senha=senha,
+        nivel="admin"
+    )
+
+    db.session.add(admin)
+    db.session.commit()
+
+    return "Admin criado: admin / 123456"
 # ------------------------
 # RUN
 # ------------------------
