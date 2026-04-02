@@ -324,6 +324,14 @@ def criar_tabelas():
     return "Tabelas criadas!"
 
 # ------------------------
+# APAGAR BANCO
+# ------------------------
+@app.route("/resetar_banco")
+def resetar_banco():
+    db.drop_all()
+    db.create_all()
+    return "Banco resetado com sucesso!" 
+# ------------------------
 # RUN
 # ------------------------
 if __name__ == "__main__":
