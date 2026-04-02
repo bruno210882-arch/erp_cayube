@@ -40,12 +40,12 @@ def login_obrigatorio(f):
 
 
 # ================= MODELS =================
-class Usuario(db.Model):
+cclass Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
-    usuario = db.Column(db.String(50), unique=True, nullable=False)
-    senha = db.Column(db.String(200), nullable=False)
-    nivel = db.Column(db.String(20), default="admin")  # admin / funcionario
+    nome = db.Column(db.String(100))
+    usuario = db.Column(db.String(50), unique=True)
+    senha = db.Column(db.String(200))
+    nivel = db.Column(db.String(20))
 
 
 class Cliente(db.Model):
@@ -774,12 +774,12 @@ def backup():
 
 
 # ================= RESET =================
-# @app.route("/resetar_banco")
-# @login_obrigatorio
-# def resetar_banco():
-#    db.drop_all()
-#    db.create_all()
-#    return "Banco resetado com sucesso!"
+@app.route("/resetar_banco")
+@login_obrigatorio
+def resetar_banco():
+    db.drop_all()
+    db.create_all()
+    return "Banco resetado com sucesso!"
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(debug=True)

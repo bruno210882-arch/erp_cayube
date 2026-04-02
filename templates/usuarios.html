@@ -19,4 +19,44 @@
         <option value="funcionario">Funcionário</option>
     </select>
 
-    <button type="submit">Cadastrar</button>
+    <button type="submit">Cadastrar Usuário</button>
+</form>
+
+<hr>
+
+<h3>Usuários cadastrados</h3>
+
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Usuário</th>
+        <th>Nível</th>
+        <th>Alterar Senha</th>
+        <th>Excluir</th>
+    </tr>
+
+    {% for u in usuarios %}
+    <tr>
+        <td>{{ u.id }}</td>
+        <td>{{ u.nome }}</td>
+        <td>{{ u.usuario }}</td>
+        <td>{{ u.nivel }}</td>
+
+        <td>
+            <form action="/alterar_senha/{{ u.id }}" method="POST" style="display:inline;">
+                <input type="password" name="nova_senha" placeholder="Nova senha" required>
+                <button type="submit">Alterar</button>
+            </form>
+        </td>
+
+        <td>
+            <a href="/excluir_usuario/{{ u.id }}" onclick="return confirm('Excluir usuário?')">
+                Excluir
+            </a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}
