@@ -40,7 +40,7 @@ def login_obrigatorio(f):
 
 
 # ================= MODELS =================
-cclass Usuario(db.Model):
+class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100))
     usuario = db.Column(db.String(50), unique=True)
