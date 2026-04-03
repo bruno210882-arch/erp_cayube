@@ -1,0 +1,56 @@
+{% extends "base_cliente.html" %}
+{% block conteudo %}
+
+<div class="card">
+    <h2>Itens em Aberto</h2>
+    <p><strong>Cliente:</strong> {{ cliente.nome }}</p>
+    <p><strong>Total em aberto:</strong> R$ {{ "%.2f"|format(total_aberto) }}</p>
+</div>
+
+<div class="card">
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Produto</th>
+            <th>Quantidade</th>
+            <th>Total</th>
+            <th>Forma</th>
+            <th>Status</th>
+            <th>Data</th>
+        </tr>
+
+        {% for venda, produto in itens_abertos %}
+        <tr>
+            <td>{{ venda.id }}</td>
+            <td>{{ produto.nome }}</td>
+            <td>{{ venda.quantidade }}</td>
+            <td>R$ {{ "%.2f"|format(venda.total or 0) }}</td>
+            <td>{{ venda.forma_pagamento or "Não informado" }}</td>
+            <td>
+                {% if venda.status_pix == "pendente" %}
+                    PIX pendente
+                {% elif venda.pago %}
+                    Pago
+                {% else %}
+                    Em aberto
+                {% endif %}
+            </td>
+            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="7" style="text-align:center;">Nenhum item em aberto.</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<div class="card">
+    {% if total_aberto > 0 %}
+        <a href="{{ url_for('cliente_pix_divida') }}">
+            <button>Pagar valores em aberto via PIX</button>
+        </a>
+    {% endif %}
+</div>
+
+{% endblock %}

@@ -1,34 +1,36 @@
 {% extends "base_cliente.html" %}
 {% block conteudo %}
 
-<h2>Histórico de Compras</h2>
+<div class="card">
+    <h2>Histórico de Compras</h2>
 
-<table border="1" cellpadding="8">
-    <tr>
-        <th>ID</th>
-        <th>Produto</th>
-        <th>Quantidade</th>
-        <th>Total</th>
-        <th>Status</th>
-        <th>Data</th>
-    </tr>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Produto</th>
+            <th>Quantidade</th>
+            <th>Total</th>
+            <th>Status Pedido</th>
+            <th>Status PIX</th>
+            <th>Data</th>
+        </tr>
 
-    {% for venda, produto in pedidos %}
-    <tr>
-        <td>{{ venda.id }}</td>
-        <td>{{ produto.nome }}</td>
-        <td>{{ venda.quantidade }}</td>
-        <td>R$ {{ "%.2f"|format(venda.total) }}</td>
-        <td>
-            {% if venda.pago %}
-                Pago
-            {% else %}
-                Em aberto
-            {% endif %}
-        </td>
-        <td>{{ venda.data.strftime('%d/%m/%Y') }}</td>
-    </tr>
-    {% endfor %}
-</table>
+        {% for venda, produto in pedidos %}
+        <tr>
+            <td>{{ venda.id }}</td>
+            <td>{{ produto.nome }}</td>
+            <td>{{ venda.quantidade }}</td>
+            <td>R$ {{ "%.2f"|format(venda.total) }}</td>
+            <td>{{ venda.status_pedido }}</td>
+            <td>{{ venda.status_pix }}</td>
+            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="7">Nenhum pedido encontrado.</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
 
 {% endblock %}

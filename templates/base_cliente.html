@@ -5,57 +5,171 @@
     <title>{% block titulo %}Área do Cliente{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <link rel="manifest" href="{{ url_for('manifest_cliente') }}">
+    <meta name="theme-color" content="#1e1e2f">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/cliente-192.png') }}">
+
     <style>
-        * {
-            box-sizing: border-box;
+        * { box-sizing: border-box; }
+
+        :root {
+            --cor-principal: #1e1e2f;
+            --cor-secundaria: #2e2e46;
+            --cor-card: #ffffff;
+            --cor-borda: #e3e7ee;
+            --cor-texto: #222;
+            --cor-texto-suave: #666;
+            --cor-link: #0d6efd;
+            --sombra: 0 6px 20px rgba(0, 0, 0, 0.08);
+            --raio: 16px;
         }
 
         body {
             margin: 0;
             font-family: Arial, sans-serif;
-            background: #f4f6f9;
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+            color: var(--cor-texto);
         }
 
         .topo {
-            background: #1e1e2f;
+            background: linear-gradient(135deg, var(--cor-principal), var(--cor-secundaria));
             color: white;
-            padding: 15px 20px;
+            padding: 18px 22px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
-        .topo h2 {
+        .topo-conteudo {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .marca {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .marca img {
+            height: 52px;
+            width: auto;
+            object-fit: contain;
+            background: white;
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.16);
+        }
+
+        .marca-texto h1 {
             margin: 0;
             font-size: 22px;
         }
 
+        .marca-texto span {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .cliente-box {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.18);
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 14px;
+        }
+
+        .nav-wrap {
+            max-width: 1200px;
+            margin: 18px auto 0 auto;
+            padding: 0 18px;
+        }
+
         .menu {
-            background: #ffffff;
-            padding: 12px 20px;
-            border-bottom: 1px solid #ddd;
+            background: rgba(255,255,255,0.92);
+            border: 1px solid var(--cor-borda);
+            border-radius: 18px;
+            box-shadow: var(--sombra);
+            padding: 12px;
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
+            align-items: center;
         }
 
         .menu a {
             text-decoration: none;
-            color: #1e1e2f;
+            color: var(--cor-principal);
             font-weight: bold;
+            padding: 11px 16px;
+            border-radius: 12px;
+            transition: all 0.2s ease;
         }
 
         .menu a:hover {
-            color: #0d6efd;
+            background: #eef3ff;
+            color: var(--cor-link);
+        }
+
+        .menu button {
+            margin-left: auto;
+            background: #198754;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 12px;
+            padding: 11px 16px;
+            font-weight: bold;
+            display: none;
         }
 
         .container {
-            padding: 20px;
+            max-width: 1200px;
+            margin: 20px auto 40px auto;
+            padding: 0 18px;
         }
 
         .card {
-            background: white;
-            padding: 18px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            background: var(--cor-card);
+            border-radius: var(--raio);
+            padding: 20px;
+            box-shadow: var(--sombra);
+            border: 1px solid var(--cor-borda);
             margin-bottom: 20px;
+        }
+
+        .resumo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .resumo-item {
+            background: white;
+            border: 1px solid var(--cor-borda);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: var(--sombra);
+        }
+
+        .resumo-item h3 {
+            margin: 0 0 8px 0;
+            font-size: 15px;
+            color: var(--cor-texto-suave);
+        }
+
+        .resumo-item p {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--cor-principal);
         }
 
         table {
@@ -65,100 +179,139 @@
         }
 
         table th, table td {
-            border: 1px solid #ddd;
-            padding: 10px;
+            border-bottom: 1px solid #edf0f4;
+            padding: 12px 14px;
+            text-align: left;
+            font-size: 14px;
         }
 
         table th {
-            background: #f0f0f0;
-            text-align: left;
+            background: #f8fafc;
         }
 
-        input, select {
-            padding: 10px;
+        input, select, textarea {
             width: 100%;
-            margin-top: 5px;
-            margin-bottom: 10px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
+            padding: 12px 14px;
+            margin-top: 6px;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            border: 1px solid #ccd4df;
+            font-size: 15px;
+            background: white;
         }
 
         button {
-            background: #1e1e2f;
+            background: linear-gradient(135deg, var(--cor-principal), #2f3a63);
             color: white;
             border: none;
             cursor: pointer;
-            border-radius: 6px;
-            padding: 10px 16px;
-        }
-
-        button:hover {
-            background: #33334d;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-weight: bold;
+            font-size: 14px;
         }
 
         .flash {
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            margin-bottom: 16px;
         }
 
-        .flash.success {
-            background: #d4edda;
-            color: #155724;
+        .flash.success { background: #edf9f0; color: #166534; }
+        .flash.danger { background: #fff1f2; color: #9f1239; }
+        .flash.warning { background: #fffbeb; color: #92400e; }
+        .flash.info { background: #eff6ff; color: #1d4ed8; }
+
+        .rodape {
+            text-align: center;
+            color: var(--cor-texto-suave);
+            font-size: 13px;
+            padding: 0 18px 30px 18px;
         }
 
-        .flash.danger {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .flash.warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .flash.info {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        @media (max-width: 600px) {
-            .menu {
-                flex-direction: column;
-            }
+        @media (max-width: 768px) {
+            .menu { flex-direction: column; }
+            .menu a, .menu button { width: 100%; margin-left: 0; }
+            table { display: block; overflow-x: auto; white-space: nowrap; }
         }
     </style>
 </head>
 <body>
 
     <div class="topo">
-        <h2>Área do Cliente</h2>
+        <div class="topo-conteudo">
+            <div class="marca">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logomarca">
+                <div class="marca-texto">
+                    <h1>Área do Cliente</h1>
+                    <span>Acompanhe pedidos, pagamentos e histórico</span>
+                </div>
+            </div>
+
+            <div class="cliente-box">
+                {% if session.get('cliente_nome') %}
+                    <strong>Cliente:</strong> {{ session.get('cliente_nome') }}
+                {% else %}
+                    Portal do Cliente
+                {% endif %}
+            </div>
+        </div>
     </div>
 
-   <div class="menu">
-    <a href="{{ url_for('cliente_dashboard') }}">Início</a>
-    <a href="{{ url_for('cliente_estoque') }}">Estoque</a>
-    <a href="{{ url_for('cliente_pedido') }}">Fazer Pedido</a>
-    <a href="{{ url_for('cliente_historico') }}">Histórico</a>
-    <a href="{{ url_for('cliente_itens_em_aberto') }}">Itens em Aberto</a>
-    <a href="{{ url_for('cliente_pix') }}">Pagar Pedido</a>
-    <a href="{{ url_for('cliente_pix_divida') }}">PIX em Aberto</a>
-    <a href="{{ url_for('cliente_logout') }}">Sair</a>
-</div>
-    <div class="container">
+    <div class="nav-wrap">
+        <div class="menu">
+            <a href="{{ url_for('cliente_dashboard') }}">Início</a>
+            <a href="{{ url_for('cliente_estoque') }}">Estoque</a>
+            <a href="{{ url_for('cliente_pedido') }}">Fazer Pedido</a>
+            <a href="{{ url_for('cliente_historico') }}">Histórico</a>
+            <a href="{{ url_for('cliente_itens_em_aberto') }}">Itens em Aberto</a>
+            <a href="{{ url_for('cliente_pix') }}">Pagar Pedido</a>
+            <a href="{{ url_for('cliente_pix_divida') }}">PIX em Aberto</a>
+            <a href="{{ url_for('cliente_logout') }}">Sair</a>
+            <button id="btnInstalarApp">Instalar App</button>
+        </div>
+    </div>
 
+    <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="flash {{ category }}">
-                        {{ message }}
-                    </div>
+                    <div class="flash {{ category }}">{{ message }}</div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
         {% block conteudo %}{% endblock %}
     </div>
+
+    <div class="rodape">
+        © Cayube ERP - Portal do Cliente
+    </div>
+
+    <script>
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/service-worker.js");
+    }
+
+    let deferredPrompt;
+    const installBtn = document.getElementById("btnInstalarApp");
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (installBtn) installBtn.style.display = "inline-block";
+    });
+
+    if (installBtn) {
+        installBtn.addEventListener("click", async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            installBtn.style.display = "none";
+        });
+    }
+    </script>
 
 </body>
 </html>

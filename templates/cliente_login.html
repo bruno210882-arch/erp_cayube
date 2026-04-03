@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <title>Área do Cliente</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="manifest" href="{{ url_for('manifest_cliente') }}">
+    <meta name="theme-color" content="#1e1e2f">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/cliente-192.png') }}">
+
     <style>
         * { box-sizing: border-box; }
 
@@ -24,6 +29,17 @@
             width: 100%;
             max-width: 360px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .logo-area {
+            text-align: center;
+            margin-bottom: 18px;
+        }
+
+        .logo-area img {
+            max-height: 72px;
+            width: auto;
+            object-fit: contain;
         }
 
         h2 {
@@ -86,10 +102,20 @@
             font-size: 13px;
             color: #666;
         }
+
+        #btnInstalarApp {
+            display: none;
+            margin-top: 10px;
+            background: #198754;
+        }
     </style>
 </head>
 <body>
     <div class="box">
+        <div class="logo-area">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logomarca">
+        </div>
+
         <h2>Área do Cliente</h2>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -120,6 +146,7 @@
             >
 
             <button type="submit">Entrar</button>
+            <button type="button" id="btnInstalarApp">Instalar App</button>
         </form>
 
         <div class="rodape">
@@ -148,6 +175,27 @@
             }
 
             e.target.value = v;
+        });
+
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register("/service-worker.js");
+        }
+
+        let deferredPrompt;
+        const installBtn = document.getElementById("btnInstalarApp");
+
+        window.addEventListener("beforeinstallprompt", (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = "block";
+        });
+
+        installBtn.addEventListener("click", async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            installBtn.style.display = "none";
         });
     </script>
 </body>

@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <title>ERP Cayube</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+    <link rel="manifest" href="{{ url_for('manifest_erp') }}">
     <meta name="theme-color" content="#1e1e2f">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/erp-192.png') }}">
 
     <style>
         * { box-sizing: border-box; }
@@ -82,6 +84,19 @@
             border-left: 4px solid #00c853;
         }
 
+        .sidebar button {
+            width: calc(100% - 44px);
+            margin: 10px 22px 0;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: #00c853;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+        }
+
         .main {
             margin-left: 240px;
             min-height: 100vh;
@@ -147,6 +162,7 @@
         <a href="{{ url_for('produtos') }}">📦 Produtos</a>
         <a href="{{ url_for('venda') }}">🛒 Venda</a>
         <a href="{{ url_for('fiado') }}">💳 Fiado</a>
+        <a href="{{ url_for('pedidos_clientes') }}">📋 Pedidos Clientes</a>
         <a href="{{ url_for('movimentacao') }}">💰 Caixa</a>
         <a href="{{ url_for('entrada_estoque') }}">📥 Entrada Estoque</a>
         <a href="{{ url_for('relatorio_financeiro') }}">📊 Financeiro</a>
@@ -161,6 +177,7 @@
         {% endif %}
 
         <a href="{{ url_for('logout') }}">🚪 Sair</a>
+        <button id="btnInstalarApp">Instalar App</button>
     {% else %}
         <a href="{{ url_for('login') }}">🔐 Login</a>
     {% endif %}
@@ -177,9 +194,29 @@
 </div>
 
 <script>
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/static/sw.js')
-    .then(() => console.log('App pronto'))
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/service-worker.js");
+}
+
+let deferredPrompt;
+const installBtn = document.getElementById("btnInstalarApp");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (installBtn) {
+        installBtn.style.display = "block";
+    }
+});
+
+if (installBtn) {
+    installBtn.addEventListener("click", async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installBtn.style.display = "none";
+    });
 }
 </script>
 </body>

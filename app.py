@@ -9,7 +9,7 @@ from collections import defaultdict
 import qrcode
 from flask import (
     Flask, render_template, request, redirect,
-    url_for, session, flash, send_file
+    url_for, session, flash, send_file, jsonify
 )
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, text
@@ -18,12 +18,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = "cayube_erp_chave_secreta_2026"
 
-# ================= CONFIG PIX =================
-PIX_CHAVE = "35548112899"
-PIX_NOME = "Bruna Rafaela Soares Silva"
-PIX_CIDADE = "Caieiras"
+PIX_CHAVE = "seuemail@pix.com"
+PIX_NOME = "CAYUBE"
+PIX_CIDADE = "CAMPINAS"
 
-# ================= DATABASE =================
 uri = os.getenv("DATABASE_URL")
 
 if uri:
@@ -38,7 +36,6 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 
-# ================= LOGIN OBRIGATÓRIO =================
 def login_obrigatorio(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -58,7 +55,6 @@ def login_cliente_obrigatorio(f):
     return decorated_function
 
 
-# ================= MODELS =================
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100))
@@ -140,12 +136,10 @@ class FechamentoCaixa(db.Model):
     observacao = db.Column(db.String(200))
 
 
-# ================= INIT DB =================
 with app.app_context():
     db.create_all()
 
 
-# ================= FUNÇÕES AUXILIARES =================
 def get_saldo():
     saldo = Saldo.query.first()
     if not saldo:
@@ -198,8 +192,7 @@ def gerar_payload_pix(chave, nome, cidade, valor, identificador="***"):
     payload += "6304"
 
     codigo_crc = crc16(payload)
-    payload_final = payload + codigo_crc
-    return payload_final
+    return payload + codigo_crc
 
 
 def gerar_qrcode_base64(texto):
@@ -207,11 +200,86 @@ def gerar_qrcode_base64(texto):
     buffer = io.BytesIO()
     qr.save(buffer, format="PNG")
     buffer.seek(0)
-    img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return img_base64
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-# ================= ROTAS DE MANUTENÇÃO =================
+@app.route("/manifest-erp.webmanifest")
+def manifest_erp():
+    return jsonify({
+        "id": "/login",
+        "name": "Cayube ERP Gerencial",
+        "short_name": "ERP Cayube",
+        "description": "ERP gerencial instalável",
+        "start_url": "/login",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#f4f6f9",
+        "theme_color": "#1e1e2f",
+        "orientation": "portrait-primary",
+        "icons": [
+            {"src": "/static/icons/erp-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/icons/erp-512.png", "sizes": "512x512", "type": "image/png"}
+        ]
+    })
+
+
+@app.route("/manifest-cliente.webmanifest")
+def manifest_cliente():
+    return jsonify({
+        "id": "/cliente/login",
+        "name": "Cayube Área do Cliente",
+        "short_name": "Cliente Cayube",
+        "description": "Portal do cliente instalável",
+        "start_url": "/cliente/login",
+        "scope": "/cliente",
+        "display": "standalone",
+        "background_color": "#f4f6f9",
+        "theme_color": "#1e1e2f",
+        "orientation": "portrait-primary",
+        "icons": [
+            {"src": "/static/icons/cliente-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/icons/cliente-512.png", "sizes": "512x512", "type": "image/png"}
+        ]
+    })
+
+
+@app.route("/service-worker.js")
+def service_worker():
+    js = """
+const CACHE_NAME = "cayube-pwa-v1";
+const URLS_TO_CACHE = ["/login", "/cliente/login", "/static/logo.png"];
+
+self.addEventListener("install", event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.map(key => {
+        if (key !== CACHE_NAME) return caches.delete(key);
+      }))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener("fetch", event => {
+  if (event.request.method !== "GET") return;
+
+  event.respondWith(
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request).catch(() => caches.match("/login"));
+    })
+  );
+});
+"""
+    return app.response_class(js, mimetype="application/javascript")
+
+
 @app.route("/criar_tabelas")
 def criar_tabelas():
     db.create_all()
@@ -222,7 +290,6 @@ def criar_tabelas():
 def atualizar_banco():
     try:
         db.create_all()
-
         with db.engine.connect() as conn:
             conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS senha_hash VARCHAR(255)"))
             conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE"))
@@ -230,7 +297,6 @@ def atualizar_banco():
             conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pedido VARCHAR(30) DEFAULT 'aguardando_aprovacao'"))
             conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pix VARCHAR(30) DEFAULT 'pendente'"))
             conn.commit()
-
         return "Banco atualizado com sucesso!"
     except Exception as e:
         return f"Erro ao atualizar banco: {str(e)}"
@@ -239,10 +305,8 @@ def atualizar_banco():
 @app.route("/resetar_senha_clientes")
 def resetar_senha_clientes():
     clientes = Cliente.query.all()
-
     for c in clientes:
         c.set_senha("123456")
-
     db.session.commit()
     return "Senhas resetadas para 123456"
 
@@ -252,22 +316,18 @@ def criar_admin():
     if Usuario.query.filter_by(usuario="admin").first():
         return "Admin já existe"
 
-    senha_hash = generate_password_hash("123456")
-
     admin = Usuario(
         nome="Administrador",
         usuario="admin",
-        senha=senha_hash,
+        senha=generate_password_hash("123456"),
         nivel="admin"
     )
 
     db.session.add(admin)
     db.session.commit()
-
     return "Admin criado com sucesso! Usuario: admin | Senha: 123456"
 
 
-# ================= LOGIN ADMIN =================
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -294,7 +354,6 @@ def logout():
     return redirect(url_for("login"))
 
 
-# ================= DASHBOARD =================
 @app.route("/")
 @login_obrigatorio
 def index():
@@ -310,8 +369,7 @@ def index():
     for v in vendas:
         produto = Produto.query.get(v.produto_id)
         if produto:
-            custo = produto.custo or 0
-            lucro_total += v.total - (custo * v.quantidade)
+            lucro_total += v.total - ((produto.custo or 0) * v.quantidade)
 
     produtos_baixo_estoque = Produto.query.filter(Produto.estoque <= 5).all()
 
@@ -326,21 +384,53 @@ def index():
     )
 
 
-# ================= CLIENTES =================
 @app.route("/clientes")
 @login_obrigatorio
 def clientes():
     lista = Cliente.query.all()
     return render_template("clientes.html", clientes=lista)
 
+@app.route("/editar_cliente/<int:id>", methods=["GET", "POST"])
+@login_obrigatorio
+def editar_cliente(id):
+    cliente = Cliente.query.get_or_404(id)
+
+    if request.method == "POST":
+        try:
+            nome = request.form["nome"].strip()
+            telefone = re.sub(r"\D", "", request.form.get("telefone", ""))
+            local = request.form.get("local", "").strip()
+
+            if telefone:
+                existe = Cliente.query.filter(
+                    Cliente.telefone == telefone,
+                    Cliente.id != cliente.id
+                ).first()
+
+                if existe:
+                    flash("Já existe outro cliente com esse telefone.", "danger")
+                    return redirect(url_for("editar_cliente", id=cliente.id))
+
+            cliente.nome = nome
+            cliente.telefone = telefone
+            cliente.local = local
+
+            db.session.commit()
+            flash("Cliente atualizado com sucesso.", "success")
+            return redirect(url_for("clientes"))
+
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao editar cliente: {str(e)}"
+
+    return render_template("editar_cliente.html", cliente=cliente)
 
 @app.route("/add_cliente", methods=["POST"])
 @login_obrigatorio
 def add_cliente():
     try:
         nome = request.form["nome"].strip()
-        telefone = request.form.get("telefone", "")
-        telefone = re.sub(r"\D", "", telefone)
+        telefone = re.sub(r"\D", "", request.form.get("telefone", ""))
         local = request.form.get("local", "").strip()
 
         if telefone:
@@ -349,13 +439,7 @@ def add_cliente():
                 flash("Já existe cliente com esse telefone.", "danger")
                 return redirect(url_for("clientes"))
 
-        novo = Cliente(
-            nome=nome,
-            telefone=telefone,
-            local=local,
-            ativo=True
-        )
-
+        novo = Cliente(nome=nome, telefone=telefone, local=local, ativo=True)
         novo.set_senha("123456")
 
         db.session.add(novo)
@@ -386,7 +470,6 @@ def definir_senha_cliente(cliente_id):
 
     if request.method == "POST":
         senha = request.form.get("senha", "").strip()
-
         if not senha:
             flash("Digite uma senha válida.", "danger")
             return redirect(url_for("definir_senha_cliente", cliente_id=cliente.id))
@@ -406,7 +489,6 @@ def confirmar_pix_divida(cliente_id):
     saldo = get_saldo()
 
     valor_aberto = cliente.divida or 0
-
     if valor_aberto <= 0:
         flash("Esse cliente não possui valores em aberto.", "warning")
         return redirect(url_for("clientes"))
@@ -439,7 +521,6 @@ def confirmar_pix_divida(cliente_id):
     return redirect(url_for("clientes"))
 
 
-# ================= PRODUTOS =================
 @app.route("/produtos")
 @login_obrigatorio
 def produtos():
@@ -475,7 +556,6 @@ def excluir_produto(id):
     return redirect(url_for("produtos"))
 
 
-# ================= VENDA ADMIN =================
 @app.route("/venda", methods=["GET", "POST"])
 @login_obrigatorio
 def venda():
@@ -492,13 +572,10 @@ def venda():
 
             if not produto:
                 return "Produto não encontrado."
-
             if not cliente:
                 return "Cliente não encontrado."
-
             if quantidade <= 0:
                 return "Quantidade inválida."
-
             if (produto.estoque or 0) < quantidade:
                 return "Estoque insuficiente para essa venda."
 
@@ -553,7 +630,6 @@ def venda():
     )
 
 
-# ================= FIADO =================
 @app.route("/fiado")
 @login_obrigatorio
 def fiado():
@@ -613,7 +689,6 @@ def receber_venda(venda_id):
     return redirect(url_for("fiado"))
 
 
-# ================= MOVIMENTAÇÃO / CAIXA =================
 @app.route("/movimentacao", methods=["GET", "POST"])
 @login_obrigatorio
 def movimentacao():
@@ -653,15 +728,9 @@ def movimentacao():
             return f"Erro ao registrar movimentação: {str(e)}"
 
     movimentos = Movimento.query.order_by(Movimento.data.desc()).all()
-
-    return render_template(
-        "movimentacao.html",
-        movimentos=movimentos,
-        saldo=saldo
-    )
+    return render_template("movimentacao.html", movimentos=movimentos, saldo=saldo)
 
 
-# ================= ENTRADA DE ESTOQUE =================
 @app.route("/entrada_estoque", methods=["GET", "POST"])
 @login_obrigatorio
 def entrada_estoque():
@@ -703,7 +772,6 @@ def entrada_estoque():
             elif origem == "dinheiro":
                 saldo.dinheiro -= valor_compra
                 origem_financeira = "dinheiro"
-
             else:
                 saldo.conta -= valor_compra
                 origem_financeira = "conta"
@@ -732,7 +800,6 @@ def entrada_estoque():
             return f"Erro ao registrar entrada de estoque: {str(e)}"
 
     movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
-
     return render_template(
         "entrada_estoque.html",
         produtos=Produto.query.all(),
@@ -741,13 +808,11 @@ def entrada_estoque():
     )
 
 
-# ================= RELATÓRIOS =================
 @app.route("/relatorio_financeiro")
 @login_obrigatorio
 def relatorio_financeiro():
     saldo = get_saldo()
     movimentos = Movimento.query.order_by(Movimento.data.desc()).all()
-
     total_entradas = sum(m.valor for m in movimentos if m.tipo == "entrada")
     total_saidas = sum(m.valor for m in movimentos if m.tipo == "saida")
 
@@ -765,12 +830,7 @@ def relatorio_financeiro():
 def relatorio_estoque():
     produtos = Produto.query.all()
     movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
-
-    return render_template(
-        "relatorio_estoque.html",
-        produtos=produtos,
-        movimentos=movimentos
-    )
+    return render_template("relatorio_estoque.html", produtos=produtos, movimentos=movimentos)
 
 
 @app.route("/relatorio_lucro")
@@ -783,7 +843,6 @@ def relatorio_lucro():
 
     for p in produtos:
         vendas_produto = [v for v in vendas if v.produto_id == p.id]
-
         total_vendido = sum(v.quantidade for v in vendas_produto)
         faturamento = sum(v.total for v in vendas_produto)
         custo_total = total_vendido * (p.custo or 0)
@@ -804,7 +863,6 @@ def relatorio_lucro():
 @login_obrigatorio
 def fluxo_caixa():
     movimentos = Movimento.query.order_by(Movimento.data.desc()).all()
-
     fluxo_por_dia = defaultdict(lambda: {"entradas": 0, "saidas": 0})
 
     for m in movimentos:
@@ -816,16 +874,14 @@ def fluxo_caixa():
 
     relatorio = []
     for dia, valores in fluxo_por_dia.items():
-        saldo_dia = valores["entradas"] - valores["saidas"]
         relatorio.append({
             "data": dia,
             "entradas": valores["entradas"],
             "saidas": valores["saidas"],
-            "saldo": saldo_dia
+            "saldo": valores["entradas"] - valores["saidas"]
         })
 
     relatorio.sort(key=lambda x: x["data"], reverse=True)
-
     return render_template("fluxo_caixa.html", relatorio=relatorio)
 
 
@@ -857,15 +913,14 @@ def fechamento_caixa():
                 fechamento_existente.saldo_final = saldo_final
                 fechamento_existente.observacao = observacao
             else:
-                novo = FechamentoCaixa(
+                db.session.add(FechamentoCaixa(
                     data=hoje,
                     saldo_inicial=saldo_inicial,
                     entradas=entradas,
                     saidas=saidas,
                     saldo_final=saldo_final,
                     observacao=observacao
-                )
-                db.session.add(novo)
+                ))
 
             db.session.commit()
             return redirect(url_for("fechamento_caixa"))
@@ -884,7 +939,6 @@ def fechamento_caixa():
     )
 
 
-# ================= USUÁRIOS =================
 @app.route("/usuarios", methods=["GET", "POST"])
 @login_obrigatorio
 def usuarios():
@@ -893,16 +947,11 @@ def usuarios():
 
     if request.method == "POST":
         try:
-            nome = request.form["nome"]
-            usuario = request.form["usuario"]
-            senha = generate_password_hash(request.form["senha"])
-            nivel = request.form["nivel"]
-
             novo = Usuario(
-                nome=nome,
-                usuario=usuario,
-                senha=senha,
-                nivel=nivel
+                nome=request.form["nome"],
+                usuario=request.form["usuario"],
+                senha=generate_password_hash(request.form["senha"]),
+                nivel=request.form["nivel"]
             )
 
             db.session.add(novo)
@@ -913,8 +962,7 @@ def usuarios():
             db.session.rollback()
             return f"Erro ao cadastrar usuário: {str(e)}"
 
-    lista = Usuario.query.all()
-    return render_template("usuarios.html", usuarios=lista)
+    return render_template("usuarios.html", usuarios=Usuario.query.all())
 
 
 @app.route("/alterar_senha/<int:id>", methods=["POST"])
@@ -945,7 +993,6 @@ def excluir_usuario(id):
     return redirect(url_for("usuarios"))
 
 
-# ================= BACKUP =================
 @app.route("/backup")
 @login_obrigatorio
 def backup():
@@ -967,13 +1014,10 @@ def backup():
         return f"Erro ao gerar backup: {str(e)}"
 
 
-# ================= ÁREA DO CLIENTE =================
 @app.route("/cliente/login", methods=["GET", "POST"])
 def login_cliente():
     if request.method == "POST":
-        telefone = request.form.get("telefone", "")
-        telefone = re.sub(r"\D", "", telefone)
-
+        telefone = re.sub(r"\D", "", request.form.get("telefone", ""))
         senha = request.form.get("senha", "").strip()
 
         cliente = Cliente.query.filter_by(telefone=telefone, ativo=True).first()
@@ -1090,10 +1134,29 @@ def cliente_historico():
         .all()
     )
 
+    return render_template("cliente_historico.html", cliente=cliente, pedidos=pedidos)
+
+
+@app.route("/cliente/itens_em_aberto")
+@login_cliente_obrigatorio
+def cliente_itens_em_aberto():
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+
+    itens_abertos = (
+        db.session.query(Venda, Produto)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.cliente_id == cliente.id, Venda.pago == False)
+        .order_by(Venda.data.desc())
+        .all()
+    )
+
+    total_aberto = sum((venda.total or 0) for venda, _produto in itens_abertos)
+
     return render_template(
-        "cliente_historico.html",
+        "cliente_itens_em_aberto.html",
         cliente=cliente,
-        pedidos=pedidos
+        itens_abertos=itens_abertos,
+        total_aberto=total_aberto
     )
 
 
@@ -1104,11 +1167,7 @@ def cliente_pix():
 
     pedido = (
         Venda.query
-        .filter_by(
-            cliente_id=cliente.id,
-            status_pedido="aprovado",
-            status_pix="pendente"
-        )
+        .filter_by(cliente_id=cliente.id, status_pedido="aprovado", status_pix="pendente")
         .order_by(Venda.data.desc())
         .first()
     )
@@ -1141,7 +1200,6 @@ def cliente_pix():
 @login_cliente_obrigatorio
 def cliente_pix_divida():
     cliente = Cliente.query.get_or_404(session["cliente_id"])
-
     valor_aberto = cliente.divida or 0
 
     if valor_aberto <= 0:
@@ -1167,7 +1225,6 @@ def cliente_pix_divida():
     )
 
 
-# ================= PEDIDOS CLIENTES / APROVAÇÕES =================
 @app.route("/pedidos_clientes")
 @login_obrigatorio
 def pedidos_clientes():
@@ -1247,14 +1304,12 @@ def confirmar_pix(venda_id):
     produto.estoque -= venda.quantidade
     saldo.conta += venda.total
 
-    mov_estoque = MovimentoEstoque(
+    db.session.add(MovimentoEstoque(
         produto_id=produto.id,
         tipo="saida",
         quantidade=venda.quantidade,
         motivo="Pedido cliente aprovado + PIX confirmado"
-    )
-
-    db.session.add(mov_estoque)
+    ))
 
     if cliente:
         cliente.divida = max((cliente.divida or 0) - venda.total, 0)
@@ -1265,32 +1320,6 @@ def confirmar_pix(venda_id):
     return redirect(url_for("pedidos_clientes"))
 
 
-@app.route("/cliente/itens_em_aberto")
-@login_cliente_obrigatorio
-def cliente_itens_em_aberto():
-    cliente = Cliente.query.get_or_404(session["cliente_id"])
-
-    itens_abertos = (
-        db.session.query(Venda, Produto)
-        .join(Produto, Venda.produto_id == Produto.id)
-        .filter(
-            Venda.cliente_id == cliente.id,
-            Venda.pago == False
-        )
-        .order_by(Venda.data.desc())
-        .all()
-    )
-
-    total_aberto = sum((venda.total or 0) for venda, _produto in itens_abertos)
-
-    return render_template(
-        "cliente_itens_em_aberto.html",
-        cliente=cliente,
-        itens_abertos=itens_abertos,
-        total_aberto=total_aberto
-    )
-
-# ================= RESET =================
 @app.route("/resetar_banco")
 @login_obrigatorio
 def resetar_banco():
@@ -1299,6 +1328,5 @@ def resetar_banco():
     return "Banco resetado com sucesso!"
 
 
-# ================= RUN =================
 if __name__ == "__main__":
     app.run(debug=True)
