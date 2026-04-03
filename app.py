@@ -1,19 +1,27 @@
 import os
-import subprocess
+import io
+import re
+import base64
 from datetime import datetime, date
 from functools import wraps
 from collections import defaultdict
 
+import qrcode
 from flask import (
     Flask, render_template, request, redirect,
     url_for, session, flash, send_file
 )
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
+from sqlalchemy import func, text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "cayube_erp_chave_secreta_2026"
+
+# ================= CONFIG PIX =================
+PIX_CHAVE = "35548112899"
+PIX_NOME = "Bruna Rafaela Soares Silva"
+PIX_CIDADE = "Caieiras"
 
 # ================= DATABASE =================
 uri = os.getenv("DATABASE_URL")
@@ -95,8 +103,10 @@ class Venda(db.Model):
     forma_pagamento = db.Column(db.String(20))
     data = db.Column(db.DateTime, default=datetime.utcnow)
 
-    status_pedido = db.Column(db.String(20), default="aguardando_aprovacao")
-    status_pix = db.Column(db.String(20), default="pendente")
+    # novos campos
+    status_pedido = db.Column(db.String(30), default="aguardando_aprovacao")
+    status_pix = db.Column(db.String(30), default="pendente")
+
 
 class Saldo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -147,7 +157,119 @@ def get_saldo():
     return saldo
 
 
-# ================= LOGIN =================
+def formatar_valor_pix(valor):
+    return f"{valor:.2f}"
+
+
+def crc16(payload):
+    polinomio = 0x1021
+    resultado = 0xFFFF
+
+    for byte in payload.encode("utf-8"):
+        resultado ^= byte << 8
+        for _ in range(8):
+            if resultado & 0x8000:
+                resultado = (resultado << 1) ^ polinomio
+            else:
+                resultado <<= 1
+            resultado &= 0xFFFF
+
+    return format(resultado, "04X")
+
+
+def campo_pix(id_campo, valor):
+    tamanho = str(len(valor)).zfill(2)
+    return f"{id_campo}{tamanho}{valor}"
+
+
+def gerar_payload_pix(chave, nome, cidade, valor, identificador="***"):
+    gui = campo_pix("00", "br.gov.bcb.pix")
+    chave_pix = campo_pix("01", chave)
+    merchant_account = campo_pix("26", gui + chave_pix)
+
+    payload = ""
+    payload += campo_pix("00", "01")
+    payload += campo_pix("26", merchant_account)
+    payload += campo_pix("52", "0000")
+    payload += campo_pix("53", "986")
+    payload += campo_pix("54", formatar_valor_pix(valor))
+    payload += campo_pix("58", "BR")
+    payload += campo_pix("59", nome[:25])
+    payload += campo_pix("60", cidade[:15])
+    payload += campo_pix("62", campo_pix("05", identificador[:25]))
+    payload += "6304"
+
+    codigo_crc = crc16(payload)
+    payload_final = payload + codigo_crc
+    return payload_final
+
+
+def gerar_qrcode_base64(texto):
+    qr = qrcode.make(texto)
+    buffer = io.BytesIO()
+    qr.save(buffer, format="PNG")
+    buffer.seek(0)
+    img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    return img_base64
+
+
+# ================= ROTAS DE MANUTENÇÃO =================
+@app.route("/criar_tabelas")
+def criar_tabelas():
+    db.create_all()
+    return "Tabelas criadas com sucesso!"
+
+
+@app.route("/atualizar_banco")
+def atualizar_banco():
+    try:
+        db.create_all()
+
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS senha_hash VARCHAR(255)"))
+            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE"))
+            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS data TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pedido VARCHAR(30) DEFAULT 'aguardando_aprovacao'"))
+            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pix VARCHAR(30) DEFAULT 'pendente'"))
+            conn.commit()
+
+        return "Banco atualizado com sucesso!"
+    except Exception as e:
+        return f"Erro ao atualizar banco: {str(e)}"
+
+
+@app.route("/resetar_senha_clientes")
+def resetar_senha_clientes():
+    clientes = Cliente.query.all()
+
+    for c in clientes:
+        c.set_senha("123456")
+
+    db.session.commit()
+    return "Senhas resetadas para 123456"
+
+
+@app.route("/criar_admin")
+def criar_admin():
+    if Usuario.query.filter_by(usuario="admin").first():
+        return "Admin já existe"
+
+    senha_hash = generate_password_hash("123456")
+
+    admin = Usuario(
+        nome="Administrador",
+        usuario="admin",
+        senha=senha_hash,
+        nivel="admin"
+    )
+
+    db.session.add(admin)
+    db.session.commit()
+
+    return "Admin criado com sucesso! Usuario: admin | Senha: 123456"
+
+
+# ================= LOGIN ADMIN =================
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -174,32 +296,6 @@ def logout():
     return redirect(url_for("login"))
 
 
-@app.route("/criar_tabelas")
-def criar_tabelas():
-    db.create_all()
-    return "Tabelas criadas com sucesso!"
-
-
-@app.route("/criar_admin")
-def criar_admin():
-    if Usuario.query.filter_by(usuario="admin").first():
-        return "Admin já existe"
-
-    senha_hash = generate_password_hash("123456")
-
-    admin = Usuario(
-        nome="Administrador",
-        usuario="admin",
-        senha=senha_hash,
-        nivel="admin"
-    )
-
-    db.session.add(admin)
-    db.session.commit()
-
-    return "Admin criado com sucesso! Usuario: admin | Senha: 123456"
-
-
 # ================= DASHBOARD =================
 @app.route("/")
 @login_obrigatorio
@@ -209,7 +305,7 @@ def index():
     produtos = Produto.query.all()
 
     total_vendas = sum(v.total for v in vendas if v.pago)
-    total_fiado = sum(v.total for v in vendas if not v.pago)
+    total_fiado = sum(v.total for v in vendas if not v.pago and v.forma_pagamento == "fiado")
     total_estoque = sum((p.estoque or 0) for p in produtos)
 
     lucro_total = 0
@@ -244,14 +340,11 @@ def clientes():
 @login_obrigatorio
 def add_cliente():
     try:
-        import re
-
         nome = request.form["nome"].strip()
         telefone = request.form.get("telefone", "")
-        telefone = re.sub(r"\D", "", telefone)  # remove máscara
+        telefone = re.sub(r"\D", "", telefone)
         local = request.form.get("local", "").strip()
 
-        # verifica telefone duplicado
         if telefone:
             existe = Cliente.query.filter_by(telefone=telefone).first()
             if existe:
@@ -265,7 +358,6 @@ def add_cliente():
             ativo=True
         )
 
-        # senha padrão
         novo.set_senha("123456")
 
         db.session.add(novo)
@@ -277,6 +369,7 @@ def add_cliente():
     except Exception as e:
         db.session.rollback()
         return f"Erro ao cadastrar cliente: {str(e)}"
+
 
 @app.route("/excluir_cliente/<int:id>")
 @login_obrigatorio
@@ -344,7 +437,7 @@ def excluir_produto(id):
     return redirect(url_for("produtos"))
 
 
-# ================= VENDA =================
+# ================= VENDA ADMIN =================
 @app.route("/venda", methods=["GET", "POST"])
 @login_obrigatorio
 def venda():
@@ -380,7 +473,9 @@ def venda():
                 quantidade=quantidade,
                 total=total,
                 pago=pago,
-                forma_pagamento=forma
+                forma_pagamento=forma,
+                status_pedido="aprovado",
+                status_pix="pago" if forma == "pix" else ("pendente" if forma == "fiado" else "pago")
             )
 
             produto.estoque -= quantidade
@@ -389,7 +484,7 @@ def venda():
                 produto_id=produto_id,
                 tipo="saida",
                 quantidade=quantidade,
-                motivo="Venda"
+                motivo="Venda administrativa"
             )
 
             db.session.add(nova_venda)
@@ -398,7 +493,7 @@ def venda():
             if pago:
                 if forma == "dinheiro":
                     saldo.dinheiro += total
-                elif forma == "transferencia":
+                else:
                     saldo.conta += total
             else:
                 cliente.divida = (cliente.divida or 0) + total
@@ -428,7 +523,7 @@ def fiado():
         db.session.query(Venda, Cliente, Produto)
         .join(Cliente, Venda.cliente_id == Cliente.id)
         .join(Produto, Venda.produto_id == Produto.id)
-        .filter(Venda.pago == False)
+        .filter(Venda.pago == False, Venda.forma_pagamento == "fiado")
         .all()
     )
 
@@ -438,7 +533,7 @@ def fiado():
             func.sum(Venda.total).label("total_divida")
         )
         .join(Venda, Venda.cliente_id == Cliente.id)
-        .filter(Venda.pago == False)
+        .filter(Venda.pago == False, Venda.forma_pagamento == "fiado")
         .group_by(Cliente.nome)
         .all()
     )
@@ -465,6 +560,7 @@ def receber_venda(venda_id):
     if not venda.pago:
         venda.pago = True
         venda.forma_pagamento = forma
+        venda.status_pix = "pago"
 
         if forma.lower() == "dinheiro":
             saldo.dinheiro += venda.total
@@ -607,7 +703,7 @@ def entrada_estoque():
     )
 
 
-# ================= RELATÓRIO FINANCEIRO =================
+# ================= RELATÓRIOS =================
 @app.route("/relatorio_financeiro")
 @login_obrigatorio
 def relatorio_financeiro():
@@ -626,7 +722,6 @@ def relatorio_financeiro():
     )
 
 
-# ================= RELATÓRIO ESTOQUE =================
 @app.route("/relatorio_estoque")
 @login_obrigatorio
 def relatorio_estoque():
@@ -640,7 +735,6 @@ def relatorio_estoque():
     )
 
 
-# ================= RELATÓRIO LUCRO =================
 @app.route("/relatorio_lucro")
 @login_obrigatorio
 def relatorio_lucro():
@@ -668,7 +762,6 @@ def relatorio_lucro():
     return render_template("relatorio_lucro.html", relatorio=relatorio)
 
 
-# ================= FLUXO DE CAIXA =================
 @app.route("/fluxo_caixa")
 @login_obrigatorio
 def fluxo_caixa():
@@ -698,7 +791,6 @@ def fluxo_caixa():
     return render_template("fluxo_caixa.html", relatorio=relatorio)
 
 
-# ================= FECHAMENTO DE CAIXA =================
 @app.route("/fechamento_caixa", methods=["GET", "POST"])
 @login_obrigatorio
 def fechamento_caixa():
@@ -814,20 +906,7 @@ def excluir_usuario(id):
 
     return redirect(url_for("usuarios"))
 
-@app.route("/atualizar_banco")
-def atualizar_banco():
-    from sqlalchemy import text
 
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS senha_hash VARCHAR(255)"))
-            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE"))
-            conn.commit()
-
-        return "Banco atualizado com sucesso!"
-
-    except Exception as e:
-        return f"Erro ao atualizar banco: {str(e)}"
 # ================= BACKUP =================
 @app.route("/backup")
 @login_obrigatorio
@@ -854,9 +933,8 @@ def backup():
 @app.route("/cliente/login", methods=["GET", "POST"])
 def login_cliente():
     if request.method == "POST":
-        import re
         telefone = request.form.get("telefone", "")
-        telefone = re.sub(r"\D", "", telefone)  # remove tudo que não é número
+        telefone = re.sub(r"\D", "", telefone)
 
         senha = request.form.get("senha", "").strip()
 
@@ -871,6 +949,7 @@ def login_cliente():
             flash("Telefone ou senha inválidos.", "danger")
 
     return render_template("cliente_login.html")
+
 
 @app.route("/cliente/logout")
 def cliente_logout():
@@ -935,31 +1014,23 @@ def cliente_pedido():
 
             total = (produto.preco or 0) * quantidade
 
+            # Cliente cria pedido aguardando aprovação do admin
             nova = Venda(
                 produto_id=produto.id,
                 cliente_id=cliente.id,
                 quantidade=quantidade,
                 total=total,
                 pago=False,
-                forma_pagamento="pedido_cliente",
-                data=datetime.utcnow()
-            )
-
-            produto.estoque -= quantidade
-            cliente.divida = (cliente.divida or 0) + total
-
-            mov_estoque = MovimentoEstoque(
-                produto_id=produto.id,
-                tipo="saida",
-                quantidade=quantidade,
-                motivo="Pedido do cliente"
+                forma_pagamento="pix",
+                data=datetime.utcnow(),
+                status_pedido="aguardando_aprovacao",
+                status_pix="pendente"
             )
 
             db.session.add(nova)
-            db.session.add(mov_estoque)
             db.session.commit()
 
-            flash("Pedido realizado com sucesso.", "success")
+            flash("Pedido enviado com sucesso. Aguarde aprovação do administrador.", "success")
             return redirect(url_for("cliente_dashboard"))
 
         except Exception as e:
@@ -989,6 +1060,144 @@ def cliente_historico():
     )
 
 
+@app.route("/cliente/pix")
+@login_cliente_obrigatorio
+def cliente_pix():
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+
+    pedido = (
+        Venda.query
+        .filter_by(
+            cliente_id=cliente.id,
+            status_pedido="aprovado",
+            status_pix="pendente"
+        )
+        .order_by(Venda.data.desc())
+        .first()
+    )
+
+    if not pedido:
+        flash("Você não possui pedido aprovado aguardando pagamento PIX.", "warning")
+        return redirect(url_for("cliente_dashboard"))
+
+    payload_pix = gerar_payload_pix(
+        chave=PIX_CHAVE,
+        nome=PIX_NOME,
+        cidade=PIX_CIDADE,
+        valor=pedido.total,
+        identificador=f"PED{pedido.id}"
+    )
+
+    qr_code_base64 = gerar_qrcode_base64(payload_pix)
+
+    return render_template(
+        "cliente_pix.html",
+        cliente=cliente,
+        pedido=pedido,
+        valor_aberto=pedido.total,
+        payload_pix=payload_pix,
+        qr_code_base64=qr_code_base64
+    )
+
+
+# ================= PEDIDOS CLIENTES / APROVAÇÕES =================
+@app.route("/pedidos_clientes")
+@login_obrigatorio
+def pedidos_clientes():
+    pedidos = (
+        db.session.query(Venda, Cliente, Produto)
+        .join(Cliente, Venda.cliente_id == Cliente.id)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .order_by(Venda.data.desc())
+        .all()
+    )
+
+    return render_template("pedidos_clientes.html", pedidos=pedidos)
+
+
+@app.route("/aprovar_pedido/<int:venda_id>")
+@login_obrigatorio
+def aprovar_pedido(venda_id):
+    venda = Venda.query.get_or_404(venda_id)
+    produto = Produto.query.get(venda.produto_id)
+
+    if venda.status_pedido != "aguardando_aprovacao":
+        flash("Esse pedido já foi analisado.", "warning")
+        return redirect(url_for("pedidos_clientes"))
+
+    if not produto or produto.estoque < venda.quantidade:
+        flash("Estoque insuficiente para aprovar o pedido.", "danger")
+        return redirect(url_for("pedidos_clientes"))
+
+    venda.status_pedido = "aprovado"
+    db.session.commit()
+
+    flash("Pedido aprovado com sucesso.", "success")
+    return redirect(url_for("pedidos_clientes"))
+
+
+@app.route("/recusar_pedido/<int:venda_id>")
+@login_obrigatorio
+def recusar_pedido(venda_id):
+    venda = Venda.query.get_or_404(venda_id)
+
+    if venda.status_pedido != "aguardando_aprovacao":
+        flash("Esse pedido já foi analisado.", "warning")
+        return redirect(url_for("pedidos_clientes"))
+
+    venda.status_pedido = "recusado"
+    venda.status_pix = "cancelado"
+    db.session.commit()
+
+    flash("Pedido recusado.", "warning")
+    return redirect(url_for("pedidos_clientes"))
+
+
+@app.route("/confirmar_pix/<int:venda_id>")
+@login_obrigatorio
+def confirmar_pix(venda_id):
+    venda = Venda.query.get_or_404(venda_id)
+    cliente = Cliente.query.get(venda.cliente_id)
+    produto = Produto.query.get(venda.produto_id)
+    saldo = get_saldo()
+
+    if venda.status_pedido != "aprovado":
+        flash("O pedido precisa ser aprovado antes de confirmar o PIX.", "danger")
+        return redirect(url_for("pedidos_clientes"))
+
+    if venda.status_pix == "pago":
+        flash("Esse PIX já foi confirmado.", "warning")
+        return redirect(url_for("pedidos_clientes"))
+
+    if not produto or produto.estoque < venda.quantidade:
+        flash("Estoque insuficiente no momento da confirmação.", "danger")
+        return redirect(url_for("pedidos_clientes"))
+
+    venda.status_pix = "pago"
+    venda.pago = True
+    venda.forma_pagamento = "pix"
+
+    produto.estoque -= venda.quantidade
+    saldo.conta += venda.total
+
+    mov_estoque = MovimentoEstoque(
+        produto_id=produto.id,
+        tipo="saida",
+        quantidade=venda.quantidade,
+        motivo="Pedido cliente aprovado + PIX confirmado"
+    )
+
+    db.session.add(mov_estoque)
+
+    if cliente:
+        cliente.divida = max((cliente.divida or 0) - venda.total, 0)
+
+    db.session.commit()
+
+    flash("Recebimento PIX confirmado com sucesso.", "success")
+    return redirect(url_for("pedidos_clientes"))
+
+
 # ================= RESET =================
 @app.route("/resetar_banco")
 @login_obrigatorio
@@ -997,20 +1206,6 @@ def resetar_banco():
     db.create_all()
     return "Banco resetado com sucesso!"
 
-
-@app.route("/atualizar_banco_venda")
-def atualizar_banco_venda():
-    from sqlalchemy import text
-
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pedido VARCHAR(20) DEFAULT 'aguardando_aprovacao'"))
-            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pix VARCHAR(20) DEFAULT 'pendente'"))
-            conn.commit()
-
-        return "Tabela venda atualizada com sucesso!"
-    except Exception as e:
-        return f"Erro ao atualizar tabela venda: {str(e)}"
 
 # ================= RUN =================
 if __name__ == "__main__":
