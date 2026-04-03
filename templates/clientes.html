@@ -1,45 +1,18 @@
 {% extends 'base.html' %}
 {% block conteudo %}
 
-<h2>👥 Clientes</h2>
+<h2>Clientes</h2>
 
-<div class="grid-cards">
+<form method="POST" action="{{ url_for('add_cliente') }}">
+    <input type="text" name="nome" placeholder="Nome" required>
+    <input type="text" name="telefone" placeholder="Telefone">
+    <input type="text" name="local" placeholder="Local">
+    <button type="submit">Cadastrar</button>
+</form>
 
-    <!-- CADASTRO -->
-    <div class="card">
-        <h3>Cadastrar Cliente</h3>
+<br>
 
-        <form method="POST" action="{{ url_for('add_cliente') }}">
-            <label>Nome</label>
-            <input type="text" name="nome" required>
-
-            <label>Telefone</label>
-            <input type="text" name="telefone">
-
-            <label>Local</label>
-            <input type="text" name="local">
-
-            <button type="submit">Cadastrar</button>
-        </form>
-    </div>
-
-    <!-- RESUMO -->
-    <div class="card">
-        <h3>Resumo</h3>
-        <p>Total de Clientes: <b>{{ clientes|length }}</b></p>
-
-        <p>Total em Dívidas:
-            <b class="danger">
-                R$ {{ "%.2f"|format(clientes|sum(attribute='divida')) }}
-            </b>
-        </p>
-    </div>
-
-</div>
-
-<h3>Lista de Clientes</h3>
-
-<table>
+<table border="1" cellpadding="8">
     <tr>
         <th>ID</th>
         <th>Nome</th>
@@ -49,24 +22,24 @@
         <th>Ações</th>
     </tr>
 
-    {% for c in clientes %}
+    {% for cliente in clientes %}
     <tr>
-        <td>{{ c.id }}</td>
-        <td>{{ c.nome }}</td>
-        <td>{{ c.telefone }}</td>
-        <td>{{ c.local }}</td>
-        <td class="{% if c.divida > 0 %}danger{% else %}success{% endif %}">
-            R$ {{ "%.2f"|format(c.divida or 0) }}
-        </td>
+        <td>{{ cliente.id }}</td>
+        <td>{{ cliente.nome }}</td>
+        <td>{{ cliente.telefone }}</td>
+        <td>{{ cliente.local }}</td>
+        <td>R$ {{ "%.2f"|format(cliente.divida or 0) }}</td>
         <td>
-            <a href="{{ url_for('excluir_cliente', id=c.id) }}">
-                <button style="background:#c62828;">Excluir</button>
+            <a href="{{ url_for('definir_senha_cliente', cliente_id=cliente.id) }}">
+                Definir senha
+            </a>
+            |
+            <a href="{{ url_for('excluir_cliente', id=cliente.id) }}">
+                Excluir
             </a>
         </td>
     </tr>
     {% endfor %}
 </table>
-<a href="{{ url_for('definir_senha_cliente', cliente_id=c.id) }}">
-    Definir senha
-</a>
+
 {% endblock %}
