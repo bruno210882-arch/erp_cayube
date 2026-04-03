@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block titulo %}Área do Cliente{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+        }
+
+        .topo {
+            background: #1e1e2f;
+            color: white;
+            padding: 15px 20px;
+        }
+
+        .topo h2 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .menu {
+            background: #ffffff;
+            padding: 12px 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .menu a {
+            margin-right: 18px;
+            text-decoration: none;
+            color: #1e1e2f;
+            font-weight: bold;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        table th {
+            background: #f0f0f0;
+        }
+
+        input, select, button {
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background: #1e1e2f;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 6px;
+            padding: 10px 16px;
+        }
+
+        .flash {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="topo">
+        <h2>Área do Cliente</h2>
+    </div>
+
+    <div class="menu">
+        <a href="{{ url_for('cliente_dashboard') }}">Início</a>
+        <a href="{{ url_for('cliente_estoque') }}">Estoque</a>
+        <a href="{{ url_for('cliente_pedido') }}">Fazer Pedido</a>
+        <a href="{{ url_for('cliente_historico') }}">Histórico</a>
+        <a href="{{ url_for('cliente_logout') }}">Sair</a>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block conteudo %}{% endblock %}
+    </div>
+
+</body>
+</html>
