@@ -91,10 +91,12 @@ class Venda(db.Model):
     cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id"), nullable=False)
     quantidade = db.Column(db.Integer, nullable=False)
     total = db.Column(db.Float, nullable=False)
-    pago = db.Column(db.Boolean, default=True)
+    pago = db.Column(db.Boolean, default=False)
     forma_pagamento = db.Column(db.String(20))
     data = db.Column(db.DateTime, default=datetime.utcnow)
 
+    status_pedido = db.Column(db.String(20), default="aguardando_aprovacao")
+    status_pix = db.Column(db.String(20), default="pendente")
 
 class Saldo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -995,6 +997,20 @@ def resetar_banco():
     db.create_all()
     return "Banco resetado com sucesso!"
 
+
+@app.route("/atualizar_banco_venda")
+def atualizar_banco_venda():
+    from sqlalchemy import text
+
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pedido VARCHAR(20) DEFAULT 'aguardando_aprovacao'"))
+            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pix VARCHAR(20) DEFAULT 'pendente'"))
+            conn.commit()
+
+        return "Tabela venda atualizada com sucesso!"
+    except Exception as e:
+        return f"Erro ao atualizar tabela venda: {str(e)}"
 
 # ================= RUN =================
 if __name__ == "__main__":
