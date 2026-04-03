@@ -798,7 +798,20 @@ def excluir_usuario(id):
 
     return redirect(url_for("usuarios"))
 
+@app.route("/atualizar_banco")
+def atualizar_banco():
+    from sqlalchemy import text
 
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS senha_hash VARCHAR(255)"))
+            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE"))
+            conn.commit()
+
+        return "Banco atualizado com sucesso!"
+
+    except Exception as e:
+        return f"Erro ao atualizar banco: {str(e)}"
 # ================= BACKUP =================
 @app.route("/backup")
 @login_obrigatorio
