@@ -1,33 +1,180 @@
-{% extends "base_cliente.html" %}
+{% extends "base.html" %}
 {% block conteudo %}
 
-<h2>Pagamento de Valores em Aberto</h2>
-
-<div class="card">
-    <p><strong>Cliente:</strong> {{ cliente.nome }}</p>
-    <p><strong>Total em aberto:</strong> R$ {{ "%.2f"|format(valor_aberto) }}</p>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2 style="margin: 0;">Clientes</h2>
 </div>
 
-<div class="card" style="text-align:center;">
-    <h3>QR Code PIX</h3>
-    <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code PIX" style="max-width:300px; width:100%;">
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div style="
+                padding: 12px;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                background:
+                    {% if category == 'success' %}#d4edda
+                    {% elif category == 'danger' %}#f8d7da
+                    {% elif category == 'warning' %}#fff3cd
+                    {% else %}#d1ecf1{% endif %};
+                color:
+                    {% if category == 'success' %}#155724
+                    {% elif category == 'danger' %}#721c24
+                    {% elif category == 'warning' %}#856404
+                    {% else %}#0c5460{% endif %};
+            ">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <h3 style="margin-top: 0;">Cadastrar Cliente</h3>
+
+    <form method="POST" action="{{ url_for('add_cliente') }}">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;">
+            <div>
+                <label for="nome"><strong>Nome</strong></label>
+                <input
+                    type="text"
+                    id="nome"
+                    name="nome"
+                    placeholder="Nome do cliente"
+                    required
+                    style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px;"
+                >
+            </div>
+
+            <div>
+                <label for="telefone"><strong>Telefone</strong></label>
+                <input
+                    type="text"
+                    id="telefone"
+                    name="telefone"
+                    placeholder="(19) 99999-9999"
+                    maxlength="15"
+                    style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px;"
+                >
+            </div>
+
+            <div>
+                <label for="local"><strong>Local</strong></label>
+                <input
+                    type="text"
+                    id="local"
+                    name="local"
+                    placeholder="Cidade / Bairro / Região"
+                    style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px;"
+                >
+            </div>
+        </div>
+
+        <div style="margin-top: 18px;">
+            <button
+                type="submit"
+                style="background: #1e1e2f; color: white; border: none; padding: 12px 18px; border-radius: 8px; cursor: pointer;"
+            >
+                Cadastrar Cliente
+            </button>
+        </div>
+    </form>
 </div>
 
-<div class="card">
-    <h3>PIX Copia e Cola</h3>
-    <textarea id="pixCode" readonly style="width:100%; height:120px;">{{ payload_pix }}</textarea>
-    <br><br>
-    <button onclick="copiarPix()">Copiar código PIX</button>
+<div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow-x: auto;">
+    <h3 style="margin-top: 0;">Lista de Clientes</h3>
+
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f4f6f9;">
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">ID</th>
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Nome</th>
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Telefone</th>
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Local</th>
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Dívida</th>
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cliente in clientes %}
+            <tr>
+                <td style="padding: 12px; border: 1px solid #ddd;">{{ cliente.id }}</td>
+                <td style="padding: 12px; border: 1px solid #ddd;">{{ cliente.nome }}</td>
+                <td style="padding: 12px; border: 1px solid #ddd;">
+                    {% if cliente.telefone and cliente.telefone|length == 11 %}
+                        ({{ cliente.telefone[:2] }}) {{ cliente.telefone[2:7] }}-{{ cliente.telefone[7:] }}
+                    {% else %}
+                        {{ cliente.telefone or '' }}
+                    {% endif %}
+                </td>
+                <td style="padding: 12px; border: 1px solid #ddd;">{{ cliente.local or '' }}</td>
+                <td style="padding: 12px; border: 1px solid #ddd;">
+                    R$ {{ "%.2f"|format(cliente.divida or 0) }}
+                </td>
+                <td style="padding: 12px; border: 1px solid #ddd;">
+                    <a
+                        href="{{ url_for('definir_senha_cliente', cliente_id=cliente.id) }}"
+                        style="text-decoration: none; color: #0d6efd; font-weight: bold;"
+                    >
+                        Definir senha
+                    </a>
+
+                    {% if (cliente.divida or 0) > 0 %}
+                    |
+                    <a
+                        href="{{ url_for('confirmar_pix_divida', cliente_id=cliente.id) }}"
+                        onclick="return confirm('Confirmar recebimento PIX dos valores em aberto deste cliente?')"
+                        style="text-decoration: none; color: #198754; font-weight: bold;"
+                    >
+                        Confirmar PIX em aberto
+                    </a>
+                    {% endif %}
+
+                    |
+                    <a
+                        href="{{ url_for('excluir_cliente', id=cliente.id) }}"
+                        onclick="return confirm('Deseja realmente excluir este cliente?')"
+                        style="text-decoration: none; color: #dc3545; font-weight: bold;"
+                    >
+                        Excluir
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="padding: 15px; border: 1px solid #ddd; text-align: center;">
+                    Nenhum cliente cadastrado.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
 <script>
-function copiarPix() {
-    const campo = document.getElementById("pixCode");
-    campo.select();
-    campo.setSelectionRange(0, 99999);
-    document.execCommand("copy");
-    alert("Código PIX copiado com sucesso!");
-}
+    const telefoneInput = document.getElementById("telefone");
+
+    if (telefoneInput) {
+        telefoneInput.addEventListener("input", function (e) {
+            let v = e.target.value.replace(/\D/g, "");
+
+            if (v.length > 11) {
+                v = v.slice(0, 11);
+            }
+
+            if (v.length >= 11) {
+                v = v.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
+            } else if (v.length >= 7) {
+                v = v.replace(/^(\d{2})(\d{5})/, "($1) $2");
+            } else if (v.length >= 3) {
+                v = v.replace(/^(\d{2})(\d+)/, "($1) $2");
+            } else if (v.length > 0) {
+                v = v.replace(/^(\d+)/, "($1");
+            }
+
+            e.target.value = v;
+        });
+    }
 </script>
 
 {% endblock %}
