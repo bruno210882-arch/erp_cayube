@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h2>Produtos disponíveis</h2>
+
+<table border="1" cellpadding="8">
+    <tr>
+        <th>Produto</th>
+        <th>Preço</th>
+        <th>Estoque</th>
+    </tr>
+
+    {% for produto in produtos %}
+    <tr>
+        <td>{{ produto.nome }}</td>
+        <td>R$ {{ "%.2f"|format(produto.preco) }}</td>
+        <td>{{ produto.estoque }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

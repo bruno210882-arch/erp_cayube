@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h2>Histórico de Compras</h2>
+
+<table border="1" cellpadding="8">
+    <tr>
+        <th>ID</th>
+        <th>Produto</th>
+        <th>Quantidade</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th>Data</th>
+    </tr>
+
+    {% for venda, produto in pedidos %}
+    <tr>
+        <td>{{ venda.id }}</td>
+        <td>{{ produto.nome }}</td>
+        <td>{{ venda.quantidade }}</td>
+        <td>R$ {{ "%.2f"|format(venda.total) }}</td>
+        <td>
+            {% if venda.pago %}
+                Pago
+            {% else %}
+                Em aberto
+            {% endif %}
+        </td>
+        <td>{{ venda.data.strftime('%d/%m/%Y') }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

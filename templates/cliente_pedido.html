@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h2>Novo Pedido</h2>
+
+<form method="POST">
+    <label>Produto</label>
+    <select name="produto" required>
+        {% for produto in produtos %}
+        <option value="{{ produto.id }}">
+            {{ produto.nome }} - R$ {{ "%.2f"|format(produto.preco) }} - Estoque: {{ produto.estoque }}
+        </option>
+        {% endfor %}
+    </select>
+
+    <br><br>
+
+    <label>Quantidade</label>
+    <input type="number" name="quantidade" min="1" required>
+
+    <br><br>
+
+    <button type="submit">Enviar Pedido</button>
+</form>
+
+{% endblock %}

@@ -66,5 +66,7 @@
     </tr>
     {% endfor %}
 </table>
-
+<a href="{{ url_for('definir_senha_cliente', cliente_id=c.id) }}">
+    Definir senha
+</a>
 {% endblock %}

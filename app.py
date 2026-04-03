@@ -29,12 +29,23 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
+
 # ================= LOGIN OBRIGATÓRIO =================
 def login_obrigatorio(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "usuario_id" not in session:
             return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def login_cliente_obrigatorio(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "cliente_id" not in session:
+            flash("Faça login para acessar a área do cliente.", "danger")
+            return redirect(url_for("login_cliente"))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -50,10 +61,20 @@ class Usuario(db.Model):
 
 class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
-    telefone = db.Column(db.String(20))
+    nome = db.Column(db.String(100))
     local = db.Column(db.String(100))
     divida = db.Column(db.Float, default=0)
+    telefone = db.Column(db.String(20), unique=True)
+    senha_hash = db.Column(db.String(255))
+    ativo = db.Column(db.Boolean, default=True)
+
+    def set_senha(self, senha):
+        self.senha_hash = generate_password_hash(senha)
+
+    def check_senha(self, senha):
+        if not self.senha_hash:
+            return False
+        return check_password_hash(self.senha_hash, senha)
 
 
 class Produto(db.Model):
@@ -223,12 +244,19 @@ def add_cliente():
     try:
         novo = Cliente(
             nome=request.form["nome"],
-            telefone=request.form.get("telefone", ""),
-            local=request.form.get("local", "")
+            telefone=request.form.get("telefone", "").strip(),
+            local=request.form.get("local", "").strip(),
+            ativo=True
         )
+
+        # senha padrão inicial
+        novo.set_senha("123456")
+
         db.session.add(novo)
         db.session.commit()
+        flash("Cliente cadastrado com sucesso. Senha padrão: 123456", "success")
         return redirect(url_for("clientes"))
+
     except Exception as e:
         db.session.rollback()
         return f"Erro ao cadastrar cliente: {str(e)}"
@@ -242,6 +270,26 @@ def excluir_cliente(id):
         db.session.delete(cliente)
         db.session.commit()
     return redirect(url_for("clientes"))
+
+
+@app.route("/definir_senha_cliente/<int:cliente_id>", methods=["GET", "POST"])
+@login_obrigatorio
+def definir_senha_cliente(cliente_id):
+    cliente = Cliente.query.get_or_404(cliente_id)
+
+    if request.method == "POST":
+        senha = request.form.get("senha", "").strip()
+
+        if not senha:
+            flash("Digite uma senha válida.", "danger")
+            return redirect(url_for("definir_senha_cliente", cliente_id=cliente.id))
+
+        cliente.set_senha(senha)
+        db.session.commit()
+        flash("Senha definida com sucesso.", "success")
+        return redirect(url_for("clientes"))
+
+    return render_template("definir_senha_cliente.html", cliente=cliente)
 
 
 # ================= PRODUTOS =================
@@ -621,12 +669,12 @@ def fluxo_caixa():
 
     relatorio = []
     for dia, valores in fluxo_por_dia.items():
-        saldo = valores["entradas"] - valores["saidas"]
+        saldo_dia = valores["entradas"] - valores["saidas"]
         relatorio.append({
             "data": dia,
             "entradas": valores["entradas"],
             "saidas": valores["saidas"],
-            "saldo": saldo
+            "saldo": saldo_dia
         })
 
     relatorio.sort(key=lambda x: x["data"], reverse=True)
@@ -773,6 +821,143 @@ def backup():
         return f"Erro ao gerar backup: {str(e)}"
 
 
+# ================= ÁREA DO CLIENTE =================
+@app.route("/cliente/login", methods=["GET", "POST"])
+def login_cliente():
+    if request.method == "POST":
+        telefone = request.form.get("telefone", "").strip()
+        senha = request.form.get("senha", "").strip()
+
+        cliente = Cliente.query.filter_by(telefone=telefone, ativo=True).first()
+
+        if cliente and cliente.check_senha(senha):
+            session["cliente_id"] = cliente.id
+            session["cliente_nome"] = cliente.nome
+            flash("Login realizado com sucesso.", "success")
+            return redirect(url_for("cliente_dashboard"))
+        else:
+            flash("Telefone ou senha inválidos.", "danger")
+
+    return render_template("cliente_login.html")
+
+
+@app.route("/cliente/logout")
+def cliente_logout():
+    session.pop("cliente_id", None)
+    session.pop("cliente_nome", None)
+    flash("Você saiu da área do cliente.", "success")
+    return redirect(url_for("login_cliente"))
+
+
+@app.route("/cliente")
+@login_cliente_obrigatorio
+def cliente_dashboard():
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+
+    pedidos = (
+        db.session.query(Venda, Produto)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.cliente_id == cliente.id)
+        .order_by(Venda.data.desc())
+        .all()
+    )
+
+    total_pedidos = sum((venda.total or 0) for venda, _produto in pedidos)
+    total_aberto = cliente.divida or 0
+
+    return render_template(
+        "cliente_dashboard.html",
+        cliente=cliente,
+        pedidos=pedidos,
+        total_pedidos=total_pedidos,
+        total_aberto=total_aberto
+    )
+
+
+@app.route("/cliente/estoque")
+@login_cliente_obrigatorio
+def cliente_estoque():
+    produtos = Produto.query.filter(Produto.estoque > 0).all()
+    return render_template("cliente_estoque.html", produtos=produtos)
+
+
+@app.route("/cliente/pedido", methods=["GET", "POST"])
+@login_cliente_obrigatorio
+def cliente_pedido():
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+    produtos = Produto.query.filter(Produto.estoque > 0).all()
+
+    if request.method == "POST":
+        try:
+            produto_id = int(request.form["produto"])
+            quantidade = int(request.form["quantidade"])
+
+            produto = Produto.query.get_or_404(produto_id)
+
+            if quantidade <= 0:
+                flash("Quantidade inválida.", "danger")
+                return redirect(url_for("cliente_pedido"))
+
+            if produto.estoque < quantidade:
+                flash("Estoque insuficiente.", "danger")
+                return redirect(url_for("cliente_pedido"))
+
+            total = (produto.preco or 0) * quantidade
+
+            nova = Venda(
+                produto_id=produto.id,
+                cliente_id=cliente.id,
+                quantidade=quantidade,
+                total=total,
+                pago=False,
+                forma_pagamento="pedido_cliente",
+                data=datetime.utcnow()
+            )
+
+            produto.estoque -= quantidade
+            cliente.divida = (cliente.divida or 0) + total
+
+            mov_estoque = MovimentoEstoque(
+                produto_id=produto.id,
+                tipo="saida",
+                quantidade=quantidade,
+                motivo="Pedido do cliente"
+            )
+
+            db.session.add(nova)
+            db.session.add(mov_estoque)
+            db.session.commit()
+
+            flash("Pedido realizado com sucesso.", "success")
+            return redirect(url_for("cliente_dashboard"))
+
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao registrar pedido do cliente: {str(e)}"
+
+    return render_template("cliente_pedido.html", produtos=produtos)
+
+
+@app.route("/cliente/historico")
+@login_cliente_obrigatorio
+def cliente_historico():
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+
+    pedidos = (
+        db.session.query(Venda, Produto)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.cliente_id == cliente.id)
+        .order_by(Venda.data.desc())
+        .all()
+    )
+
+    return render_template(
+        "cliente_historico.html",
+        cliente=cliente,
+        pedidos=pedidos
+    )
+
+
 # ================= RESET =================
 @app.route("/resetar_banco")
 @login_obrigatorio
@@ -780,6 +965,8 @@ def resetar_banco():
     db.drop_all()
     db.create_all()
     return "Banco resetado com sucesso!"
+
+
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(debug=True)
