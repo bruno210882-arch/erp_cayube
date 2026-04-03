@@ -135,16 +135,16 @@
         <h2>Área do Cliente</h2>
     </div>
 
-    <div class="menu">
+   <div class="menu">
     <a href="{{ url_for('cliente_dashboard') }}">Início</a>
     <a href="{{ url_for('cliente_estoque') }}">Estoque</a>
     <a href="{{ url_for('cliente_pedido') }}">Fazer Pedido</a>
     <a href="{{ url_for('cliente_historico') }}">Histórico</a>
+    <a href="{{ url_for('cliente_itens_em_aberto') }}">Itens em Aberto</a>
     <a href="{{ url_for('cliente_pix') }}">Pagar Pedido</a>
     <a href="{{ url_for('cliente_pix_divida') }}">PIX em Aberto</a>
     <a href="{{ url_for('cliente_logout') }}">Sair</a>
 </div>
-
     <div class="container">
 
         {% with messages = get_flashed_messages(with_categories=true) %}

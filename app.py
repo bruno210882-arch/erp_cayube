@@ -1265,6 +1265,31 @@ def confirmar_pix(venda_id):
     return redirect(url_for("pedidos_clientes"))
 
 
+@app.route("/cliente/itens_em_aberto")
+@login_cliente_obrigatorio
+def cliente_itens_em_aberto():
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+
+    itens_abertos = (
+        db.session.query(Venda, Produto)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(
+            Venda.cliente_id == cliente.id,
+            Venda.pago == False
+        )
+        .order_by(Venda.data.desc())
+        .all()
+    )
+
+    total_aberto = sum((venda.total or 0) for venda, _produto in itens_abertos)
+
+    return render_template(
+        "cliente_itens_em_aberto.html",
+        cliente=cliente,
+        itens_abertos=itens_abertos,
+        total_aberto=total_aberto
+    )
+
 # ================= RESET =================
 @app.route("/resetar_banco")
 @login_obrigatorio
