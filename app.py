@@ -242,25 +242,39 @@ def clientes():
 @login_obrigatorio
 def add_cliente():
     try:
+        import re
+
+        nome = request.form["nome"].strip()
+        telefone = request.form.get("telefone", "")
+        telefone = re.sub(r"\D", "", telefone)  # remove máscara
+        local = request.form.get("local", "").strip()
+
+        # verifica telefone duplicado
+        if telefone:
+            existe = Cliente.query.filter_by(telefone=telefone).first()
+            if existe:
+                flash("Já existe cliente com esse telefone.", "danger")
+                return redirect(url_for("clientes"))
+
         novo = Cliente(
-            nome=request.form["nome"],
-            telefone=request.form.get("telefone", "").strip(),
-            local=request.form.get("local", "").strip(),
+            nome=nome,
+            telefone=telefone,
+            local=local,
             ativo=True
         )
 
-        # senha padrão inicial
+        # senha padrão
         novo.set_senha("123456")
 
         db.session.add(novo)
         db.session.commit()
-        flash("Cliente cadastrado com sucesso. Senha padrão: 123456", "success")
+
+        flash("Cliente cadastrado com sucesso! Senha padrão: 123456", "success")
         return redirect(url_for("clientes"))
 
     except Exception as e:
         db.session.rollback()
         return f"Erro ao cadastrar cliente: {str(e)}"
-
 
 @app.route("/excluir_cliente/<int:id>")
 @login_obrigatorio
@@ -838,7 +852,10 @@ def backup():
 @app.route("/cliente/login", methods=["GET", "POST"])
 def login_cliente():
     if request.method == "POST":
-        telefone = request.form.get("telefone", "").strip()
+        import re
+        telefone = request.form.get("telefone", "")
+        telefone = re.sub(r"\D", "", telefone)  # remove tudo que não é número
+
         senha = request.form.get("senha", "").strip()
 
         cliente = Cliente.query.filter_by(telefone=telefone, ativo=True).first()
@@ -852,7 +869,6 @@ def login_cliente():
             flash("Telefone ou senha inválidos.", "danger")
 
     return render_template("cliente_login.html")
-
 
 @app.route("/cliente/logout")
 def cliente_logout():
