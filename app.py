@@ -102,8 +102,6 @@ class Venda(db.Model):
     pago = db.Column(db.Boolean, default=False)
     forma_pagamento = db.Column(db.String(20))
     data = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # novos campos
     status_pedido = db.Column(db.String(30), default="aguardando_aprovacao")
     status_pix = db.Column(db.String(30), default="pendente")
 
@@ -116,9 +114,9 @@ class Saldo(db.Model):
 
 class Movimento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    tipo = db.Column(db.String(20), nullable=False)  # entrada / saida
+    tipo = db.Column(db.String(20), nullable=False)
     valor = db.Column(db.Float, nullable=False)
-    origem = db.Column(db.String(20), nullable=False)  # dinheiro / conta
+    origem = db.Column(db.String(20), nullable=False)
     descricao = db.Column(db.String(200))
     data = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -126,7 +124,7 @@ class Movimento(db.Model):
 class MovimentoEstoque(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"), nullable=False)
-    tipo = db.Column(db.String(20), nullable=False)  # entrada / saida
+    tipo = db.Column(db.String(20), nullable=False)
     quantidade = db.Column(db.Integer, nullable=False)
     motivo = db.Column(db.String(100))
     data = db.Column(db.DateTime, default=datetime.utcnow)
@@ -399,6 +397,46 @@ def definir_senha_cliente(cliente_id):
         return redirect(url_for("clientes"))
 
     return render_template("definir_senha_cliente.html", cliente=cliente)
+
+
+@app.route("/confirmar_pix_divida/<int:cliente_id>")
+@login_obrigatorio
+def confirmar_pix_divida(cliente_id):
+    cliente = Cliente.query.get_or_404(cliente_id)
+    saldo = get_saldo()
+
+    valor_aberto = cliente.divida or 0
+
+    if valor_aberto <= 0:
+        flash("Esse cliente não possui valores em aberto.", "warning")
+        return redirect(url_for("clientes"))
+
+    saldo.conta += valor_aberto
+    cliente.divida = 0
+
+    vendas_abertas = Venda.query.filter_by(
+        cliente_id=cliente.id,
+        pago=False,
+        forma_pagamento="fiado"
+    ).all()
+
+    for venda in vendas_abertas:
+        venda.pago = True
+        venda.status_pix = "pago"
+        venda.forma_pagamento = "pix"
+
+    movimento = Movimento(
+        tipo="entrada",
+        valor=valor_aberto,
+        origem="conta",
+        descricao=f"Recebimento PIX de valores em aberto - Cliente: {cliente.nome}"
+    )
+
+    db.session.add(movimento)
+    db.session.commit()
+
+    flash("PIX dos valores em aberto confirmado com sucesso.", "success")
+    return redirect(url_for("clientes"))
 
 
 # ================= PRODUTOS =================
@@ -1014,7 +1052,6 @@ def cliente_pedido():
 
             total = (produto.preco or 0) * quantidade
 
-            # Cliente cria pedido aguardando aprovação do admin
             nova = Venda(
                 produto_id=produto.id,
                 cliente_id=cliente.id,
@@ -1095,6 +1132,36 @@ def cliente_pix():
         cliente=cliente,
         pedido=pedido,
         valor_aberto=pedido.total,
+        payload_pix=payload_pix,
+        qr_code_base64=qr_code_base64
+    )
+
+
+@app.route("/cliente/pix_divida")
+@login_cliente_obrigatorio
+def cliente_pix_divida():
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+
+    valor_aberto = cliente.divida or 0
+
+    if valor_aberto <= 0:
+        flash("Você não possui valores em aberto.", "warning")
+        return redirect(url_for("cliente_dashboard"))
+
+    payload_pix = gerar_payload_pix(
+        chave=PIX_CHAVE,
+        nome=PIX_NOME,
+        cidade=PIX_CIDADE,
+        valor=valor_aberto,
+        identificador=f"DIV{cliente.id}"
+    )
+
+    qr_code_base64 = gerar_qrcode_base64(payload_pix)
+
+    return render_template(
+        "cliente_pix_divida.html",
+        cliente=cliente,
+        valor_aberto=valor_aberto,
         payload_pix=payload_pix,
         qr_code_base64=qr_code_base64
     )
