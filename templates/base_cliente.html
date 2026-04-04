@@ -12,91 +12,21 @@
     <style>
         * { box-sizing: border-box; }
 
-        :root {
-            --cor-principal: #1e1e2f;
-            --cor-secundaria: #2e2e46;
-            --cor-card: #ffffff;
-            --cor-borda: #e3e7ee;
-            --cor-texto: #222;
-            --cor-texto-suave: #666;
-            --cor-link: #0d6efd;
-            --sombra: 0 6px 20px rgba(0, 0, 0, 0.08);
-            --raio: 16px;
-        }
-
         body {
             margin: 0;
             font-family: Arial, sans-serif;
-            background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
-            color: var(--cor-texto);
+            background: #f4f6f9;
         }
 
         .topo {
-            background: linear-gradient(135deg, var(--cor-principal), var(--cor-secundaria));
+            background: #1e1e2f;
             color: white;
-            padding: 18px 22px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .topo-conteudo {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 18px;
-            flex-wrap: wrap;
-        }
-
-        .marca {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .marca img {
-            height: 52px;
-            width: auto;
-            object-fit: contain;
-            background: white;
-            border-radius: 12px;
-            padding: 6px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.16);
-        }
-
-        .marca-texto h1 {
-            margin: 0;
-            font-size: 22px;
-        }
-
-        .marca-texto span {
-            font-size: 13px;
-            opacity: 0.9;
-        }
-
-        .cliente-box {
-            background: rgba(255,255,255,0.12);
-            border: 1px solid rgba(255,255,255,0.18);
-            padding: 10px 14px;
-            border-radius: 14px;
-            font-size: 14px;
-        }
-
-        .nav-wrap {
-            max-width: 1200px;
-            margin: 18px auto 0 auto;
-            padding: 0 18px;
+            padding: 15px;
         }
 
         .menu {
-            background: rgba(255,255,255,0.92);
-            border: 1px solid var(--cor-borda);
-            border-radius: 18px;
-            box-shadow: var(--sombra);
-            padding: 12px;
+            background: white;
+            padding: 10px;
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
@@ -105,16 +35,8 @@
 
         .menu a {
             text-decoration: none;
-            color: var(--cor-principal);
+            color: #1e1e2f;
             font-weight: bold;
-            padding: 11px 16px;
-            border-radius: 12px;
-            transition: all 0.2s ease;
-        }
-
-        .menu a:hover {
-            background: #eef3ff;
-            color: var(--cor-link);
         }
 
         .menu button {
@@ -123,99 +45,59 @@
             color: white;
             border: none;
             cursor: pointer;
-            border-radius: 12px;
-            padding: 11px 16px;
+            border-radius: 8px;
+            padding: 10px 14px;
             font-weight: bold;
-            display: none;
         }
 
         .container {
-            max-width: 1200px;
-            margin: 20px auto 40px auto;
-            padding: 0 18px;
-        }
-
-        .card {
-            background: var(--cor-card);
-            border-radius: var(--raio);
             padding: 20px;
-            box-shadow: var(--sombra);
-            border: 1px solid var(--cor-borda);
-            margin-bottom: 20px;
-        }
-
-        .rodape {
-            text-align: center;
-            color: var(--cor-texto-suave);
-            font-size: 13px;
-            padding: 0 18px 30px 18px;
         }
     </style>
 </head>
 <body>
 
-    <div class="topo">
-        <div class="topo-conteudo">
-            <div class="marca">
-                <img src="{{ url_for('static', filename='logo.png') }}">
-                <div class="marca-texto">
-                    <h1>Área do Cliente</h1>
-                    <span>Acompanhe pedidos, pagamentos e histórico</span>
-                </div>
-            </div>
+<div class="topo">
+    <h2>Área do Cliente</h2>
+</div>
 
-            <div class="cliente-box">
-                {% if session.get('cliente_nome') %}
-                    <strong>Cliente:</strong> {{ session.get('cliente_nome') }}
-                {% else %}
-                    Portal do Cliente
-                {% endif %}
-            </div>
-        </div>
-    </div>
+<div class="menu">
+    <a href="{{ url_for('cliente_dashboard') }}">Início</a>
+    <a href="{{ url_for('cliente_estoque') }}">Estoque</a>
+    <a href="{{ url_for('cliente_pedido') }}">Fazer Pedido</a>
+    <a href="{{ url_for('cliente_historico') }}">Histórico</a>
+    <a href="{{ url_for('cliente_itens_em_aberto') }}">Itens em Aberto</a>
+    <a href="{{ url_for('cliente_pix') }}">Pagar Pedido</a>
+    <a href="{{ url_for('cliente_pix_divida') }}">PIX em Aberto</a>
+    <a href="{{ url_for('cliente_logout') }}">Sair</a>
+    <button id="btnInstalarApp">📲 Instalar App</button>
+</div>
 
-    <div class="nav-wrap">
-        <div class="menu">
-            <a href="{{ url_for('cliente_dashboard') }}">Início</a>
-            <a href="{{ url_for('cliente_estoque') }}">Estoque</a>
-            <a href="{{ url_for('cliente_pedido') }}">Fazer Pedido</a>
-            <a href="{{ url_for('cliente_historico') }}">Histórico</a>
-            <a href="{{ url_for('cliente_itens_em_aberto') }}">Itens em Aberto</a>
-            <a href="{{ url_for('cliente_pix') }}">Pagar Pedido</a>
-            <a href="{{ url_for('cliente_pix_divida') }}">PIX em Aberto</a>
-            <a href="{{ url_for('cliente_logout') }}">Sair</a>
-            <button id="btnInstalarApp">📲 Instalar App</button>
-        </div>
-    </div>
-
-    <div class="container">
-        {% block conteudo %}{% endblock %}
-    </div>
-
-    <div class="rodape">
-        © Cayube ERP - Portal do Cliente
-    </div>
+<div class="container">
+    {% block conteudo %}{% endblock %}
+</div>
 
 <script>
 if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/service-worker.js");
+    navigator.serviceWorker.register("/cliente-sw.js", { scope: "/cliente/" });
 }
 
-let deferredPrompt;
+let deferredPrompt = null;
 const installBtn = document.getElementById("btnInstalarApp");
 
 window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    installBtn.style.display = "inline-block";
 });
 
 installBtn.addEventListener("click", async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    installBtn.style.display = "none";
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+    } else {
+        alert("Use o menu do navegador e escolha 'Adicionar à tela inicial'.");
+    }
 });
 </script>
 
