@@ -23,9 +23,10 @@ PIX_NOME = "CAYUBE"
 PIX_CIDADE = "CAMPINAS"
 
 # =========================
-# BANCO
+# CONFIG BANCO
 # =========================
 uri = os.getenv("DATABASE_URL")
+
 if uri:
     if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "postgresql://", 1)
@@ -34,6 +35,7 @@ else:
 
 app.config["SQLALCHEMY_DATABASE_URI"] = uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
 db = SQLAlchemy(app)
 
 # =========================
@@ -52,6 +54,7 @@ def login_cliente_obrigatorio(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "cliente_id" not in session:
+            flash("Faça login para acessar a área do cliente.", "danger")
             return redirect(url_for("login_cliente"))
         return f(*args, **kwargs)
     return decorated_function
@@ -80,23 +83,25 @@ class Cliente(db.Model):
         self.senha_hash = generate_password_hash(senha)
 
     def check_senha(self, senha):
+        if not self.senha_hash:
+            return False
         return check_password_hash(self.senha_hash, senha)
 
 
 class Produto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100))
-    preco = db.Column(db.Float)
-    custo = db.Column(db.Float)
-    estoque = db.Column(db.Integer)
+    nome = db.Column(db.String(100), nullable=False)
+    preco = db.Column(db.Float, nullable=False)
+    custo = db.Column(db.Float, default=0)
+    estoque = db.Column(db.Integer, default=0)
 
 
 class Venda(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"))
-    cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id"))
-    quantidade = db.Column(db.Integer)
-    total = db.Column(db.Float)
+    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id"), nullable=False)
+    quantidade = db.Column(db.Integer, nullable=False)
+    total = db.Column(db.Float, nullable=False)
     pago = db.Column(db.Boolean, default=False)
     forma_pagamento = db.Column(db.String(20))
     data = db.Column(db.DateTime, default=datetime.utcnow)
@@ -112,117 +117,57 @@ class Saldo(db.Model):
 
 class Movimento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    tipo = db.Column(db.String(20))
-    valor = db.Column(db.Float)
-    origem = db.Column(db.String(20))
+    tipo = db.Column(db.String(20), nullable=False)
+    valor = db.Column(db.Float, nullable=False)
+    origem = db.Column(db.String(20), nullable=False)
     descricao = db.Column(db.String(200))
     data = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class MovimentoEstoque(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"), nullable=False)
+    tipo = db.Column(db.String(20), nullable=False)
+    quantidade = db.Column(db.Integer, nullable=False)
+    motivo = db.Column(db.String(100))
+    data = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class FechamentoCaixa(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    data = db.Column(db.Date, nullable=False)
+    saldo_inicial = db.Column(db.Float, default=0)
+    entradas = db.Column(db.Float, default=0)
+    saidas = db.Column(db.Float, default=0)
+    saldo_final = db.Column(db.Float, default=0)
+    observacao = db.Column(db.String(200))
 
 
 with app.app_context():
     db.create_all()
 
 # =========================
-# PWA ERP
+# FUNÇÕES AUXILIARES
 # =========================
-@app.route("/manifest-erp.webmanifest")
-def manifest_erp():
-    return jsonify({
-        "id": "/login",
-        "name": "Cayube ERP Gerencial",
-        "short_name": "ERP Cayube",
-        "start_url": "/login",
-        "scope": "/",
-        "display": "standalone",
-        "background_color": "#f4f6f9",
-        "theme_color": "#1e1e2f",
-        "icons": [
-            {"src": "/static/icons/erp-192.png", "sizes": "192x192", "type": "image/png"},
-            {"src": "/static/icons/erp-512.png", "sizes": "512x512", "type": "image/png"}
-        ]
-    })
+def get_saldo():
+    saldo = Saldo.query.first()
+    if not saldo:
+        saldo = Saldo(dinheiro=0, conta=0)
+        db.session.add(saldo)
+        db.session.commit()
+    return saldo
 
 
-@app.route("/service-worker.js")
-def service_worker():
-    js = """
-const CACHE_NAME = "erp-v1";
-const URLS_TO_CACHE = ["/login"];
-
-self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE))
-  );
-});
-
-self.addEventListener("fetch", event => {
-  event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request);
-    })
-  );
-});
-"""
-    return app.response_class(js, mimetype="application/javascript")
-
-# =========================
-# LOGIN ADMIN
-# =========================
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "GET":
-        session.clear()
-
-    if request.method == "POST":
-        usuario = Usuario.query.filter_by(usuario=request.form["usuario"]).first()
-        if usuario and check_password_hash(usuario.senha, request.form["senha"]):
-            session["usuario_id"] = usuario.id
-            session["usuario_nome"] = usuario.nome
-            return redirect(url_for("index"))
-        flash("Login inválido")
-
-    return render_template("login.html")
+def formatar_valor_pix(valor):
+    return f"{valor:.2f}"
 
 
-@app.route("/")
-@login_obrigatorio
-def index():
-    return render_template("index.html")
+def crc16(payload):
+    polinomio = 0x1021
+    resultado = 0xFFFF
 
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-# =========================
-# LOGIN CLIENTE
-# =========================
-@app.route("/cliente/login", methods=["GET", "POST"])
-def login_cliente():
-    if request.method == "GET":
-        session.pop("cliente_id", None)
-
-    if request.method == "POST":
-        telefone = re.sub(r"\D", "", request.form["telefone"])
-        senha = request.form["senha"]
-
-        cliente = Cliente.query.filter_by(telefone=telefone).first()
-        if cliente and cliente.check_senha(senha):
-            session["cliente_id"] = cliente.id
-            session["cliente_nome"] = cliente.nome
-            return redirect(url_for("cliente_dashboard"))
-
-        flash("Telefone ou senha inválidos")
-
-    return render_template("cliente_login.html")
-
-
-@app.route("/cliente")
-@login_cliente_obrigatorio
-def cliente_dashboard():
-    return render_template("cliente_dashboard.html")
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    for byte in payload.encode("utf-8"):
+        resultado ^= byte << 8
+        for _ in range(8):
+            if resultado & 0x8000:
+                resultado = (resultado << 1
