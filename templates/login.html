@@ -2,95 +2,87 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Login - ERP Cayube</title>
+    <title>Login ERP</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="manifest" href="/manifest-erp.webmanifest">
+    <meta name="theme-color" content="#1e1e2f">
+    <link rel="apple-touch-icon" href="/static/icons/erp-192.png">
+
     <style>
         body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #1e1e2f, #00c853);
+            font-family: Arial;
+            background: #f4f6f9;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
         }
 
-        .login-box {
+        .box {
             background: white;
-            padding: 35px;
-            border-radius: 18px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            width: 100%;
-            max-width: 380px;
-        }
-
-        h2 {
-            text-align: center;
-            margin-bottom: 25px;
-            color: #1e1e2f;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 6px;
-            margin-top: 12px;
-            font-weight: bold;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ccc;
+            padding: 30px;
             border-radius: 10px;
-            box-sizing: border-box;
+            width: 300px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
         }
 
         button {
-            width: 100%;
-            margin-top: 20px;
-            padding: 12px;
-            background: #00c853;
+            background: #1e1e2f;
             color: white;
             border: none;
-            border-radius: 10px;
-            font-weight: bold;
             cursor: pointer;
         }
 
-        button:hover {
-            background: #009b40;
-        }
-
-        .erro {
-            color: #c62828;
-            text-align: center;
-            margin-bottom: 12px;
+        #btnInstalar {
+            background: green;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="login-box">
-        <h2>🔐 ERP Cayube</h2>
 
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="erro">
-                    {% for message in messages %}
-                        <p>{{ message }}</p>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
+<div class="box">
+    <h2>Login ERP</h2>
 
-        <form method="POST">
-            <label>Usuário</label>
-            <input type="text" name="usuario" required>
+    <form method="POST">
+        <input type="text" name="usuario" placeholder="Usuário" required>
+        <input type="password" name="senha" placeholder="Senha" required>
+        <button type="submit">Entrar</button>
+    </form>
 
-            <label>Senha</label>
-            <input type="password" name="senha" required>
+    <button id="btnInstalar">Instalar ERP</button>
+</div>
 
-            <button type="submit">Entrar</button>
-        </form>
-    </div>
+<script>
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/service-worker.js");
+}
+
+let deferredPrompt;
+const btnInstalar = document.getElementById("btnInstalar");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    btnInstalar.style.display = "block";
+});
+
+btnInstalar.addEventListener("click", async () => {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        btnInstalar.style.display = "none";
+    }
+});
+</script>
+
 </body>
 </html>
