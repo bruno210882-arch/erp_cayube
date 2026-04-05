@@ -57,6 +57,7 @@ def login_cliente_obrigatorio(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "cliente_id" not in session:
+            flash("Faça login para acessar a área do cliente.", "danger")
             return redirect(url_for("login_cliente"))
         return f(*args, **kwargs)
     return decorated_function
@@ -135,12 +136,12 @@ with app.app_context():
 @app.route("/manifest-erp.webmanifest")
 def manifest_erp():
     return jsonify({
-        "id": "/login",
+        "id": "/admin",
         "name": "Cayube ERP Gerencial",
         "short_name": "ERP Cayube",
         "description": "ERP gerencial instalável",
         "start_url": "/login",
-        "scope": "/",
+        "scope": "/login",
         "display": "standalone",
         "background_color": "#f4f6f9",
         "theme_color": "#1e1e2f",
@@ -309,7 +310,7 @@ def login():
             session["usuario_nome"] = usuario.nome
             session["usuario_nivel"] = usuario.nivel
             return redirect(url_for("index"))
-        flash("Login inválido")
+        flash("Login inválido", "danger")
     return render_template("login.html")
 
 
@@ -371,6 +372,7 @@ def definir_senha_cliente(cliente_id):
     if request.method == "POST":
         cliente.set_senha(request.form["senha"])
         db.session.commit()
+        flash("Senha alterada com sucesso.", "success")
         return redirect(url_for("clientes"))
     return render_template("definir_senha_cliente.html", cliente=cliente)
 
@@ -388,9 +390,10 @@ def login_cliente():
         if cliente and cliente.check_senha(senha):
             session["cliente_id"] = cliente.id
             session["cliente_nome"] = cliente.nome
+            flash("Login realizado com sucesso.", "success")
             return redirect(url_for("cliente_dashboard"))
 
-        flash("Telefone ou senha inválidos")
+        flash("Telefone ou senha inválidos", "danger")
 
     return render_template("cliente_login.html")
 
@@ -399,6 +402,7 @@ def login_cliente():
 def cliente_logout():
     session.pop("cliente_id", None)
     session.pop("cliente_nome", None)
+    flash("Você saiu da área do cliente.", "success")
     return redirect(url_for("login_cliente"))
 
 
@@ -406,7 +410,25 @@ def cliente_logout():
 @login_cliente_obrigatorio
 def cliente_dashboard():
     cliente = Cliente.query.get_or_404(session["cliente_id"])
-    return render_template("cliente_dashboard.html", cliente=cliente)
+
+    pedidos = (
+        db.session.query(Venda, Produto)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.cliente_id == cliente.id)
+        .order_by(Venda.data.desc())
+        .all()
+    )
+
+    total_pedidos = sum((venda.total or 0) for venda, _produto in pedidos)
+    total_aberto = cliente.divida or 0
+
+    return render_template(
+        "cliente_dashboard.html",
+        cliente=cliente,
+        pedidos=pedidos,
+        total_pedidos=total_pedidos,
+        total_aberto=total_aberto
+    )
 
 # =========================
 # ROTAS DO MENU CLIENTE
@@ -421,11 +443,47 @@ def cliente_estoque():
 @app.route("/cliente/pedido", methods=["GET", "POST"])
 @login_cliente_obrigatorio
 def cliente_pedido():
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
     produtos = Produto.query.filter(Produto.estoque > 0).all()
 
     if request.method == "POST":
-        flash("Pedido enviado com sucesso.", "success")
-        return redirect(url_for("cliente_dashboard"))
+        try:
+            produto_id = int(request.form["produto"])
+            quantidade = int(request.form["quantidade"])
+
+            produto = Produto.query.get_or_404(produto_id)
+
+            if quantidade <= 0:
+                flash("Quantidade inválida.", "danger")
+                return redirect(url_for("cliente_pedido"))
+
+            if produto.estoque < quantidade:
+                flash("Estoque insuficiente.", "danger")
+                return redirect(url_for("cliente_pedido"))
+
+            total = (produto.preco or 0) * quantidade
+
+            nova = Venda(
+                produto_id=produto.id,
+                cliente_id=cliente.id,
+                quantidade=quantidade,
+                total=total,
+                pago=False,
+                forma_pagamento="pix",
+                data=datetime.utcnow(),
+                status_pedido="aguardando_aprovacao",
+                status_pix="pendente"
+            )
+
+            db.session.add(nova)
+            db.session.commit()
+
+            flash("Pedido enviado com sucesso. Aguarde aprovação do administrador.", "success")
+            return redirect(url_for("cliente_dashboard"))
+
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao registrar pedido do cliente: {str(e)}"
 
     return render_template("cliente_pedido.html", produtos=produtos)
 
@@ -433,18 +491,37 @@ def cliente_pedido():
 @app.route("/cliente/historico")
 @login_cliente_obrigatorio
 def cliente_historico():
-    pedidos = Venda.query.filter_by(cliente_id=session["cliente_id"]).order_by(Venda.data.desc()).all()
-    return render_template("cliente_historico.html", pedidos=pedidos)
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+
+    pedidos = (
+        db.session.query(Venda, Produto)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.cliente_id == cliente.id)
+        .order_by(Venda.data.desc())
+        .all()
+    )
+
+    return render_template("cliente_historico.html", cliente=cliente, pedidos=pedidos)
 
 
 @app.route("/cliente/itens_em_aberto")
 @login_cliente_obrigatorio
 def cliente_itens_em_aberto():
-    itens_abertos = Venda.query.filter_by(cliente_id=session["cliente_id"], pago=False).order_by(Venda.data.desc()).all()
-    total_aberto = sum((item.total or 0) for item in itens_abertos)
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+
+    itens_abertos = (
+        db.session.query(Venda, Produto)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.cliente_id == cliente.id, Venda.pago == False)
+        .order_by(Venda.data.desc())
+        .all()
+    )
+
+    total_aberto = sum((venda.total or 0) for venda, _produto in itens_abertos)
 
     return render_template(
         "cliente_itens_em_aberto.html",
+        cliente=cliente,
         itens_abertos=itens_abertos,
         total_aberto=total_aberto
     )
