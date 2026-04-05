@@ -7,7 +7,7 @@
 
     <link rel="manifest" href="{{ url_for('manifest_cliente') }}">
     <meta name="theme-color" content="#1e1e2f">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/cliente-192.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/cliente-erp-192.png') }}">
 
     <style>
         * { box-sizing: border-box; }
@@ -178,10 +178,10 @@
         });
 
         if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("/service-worker.js");
+            navigator.serviceWorker.register("/cliente-sw.js", { scope: "/cliente/" });
         }
 
-        let deferredPrompt;
+        let deferredPrompt = null;
         const installBtn = document.getElementById("btnInstalarApp");
 
         window.addEventListener("beforeinstallprompt", (e) => {
@@ -191,11 +191,14 @@
         });
 
         installBtn.addEventListener("click", async () => {
-            if (!deferredPrompt) return;
-            deferredPrompt.prompt();
-            await deferredPrompt.userChoice;
-            deferredPrompt = null;
-            installBtn.style.display = "none";
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                installBtn.style.display = "none";
+            } else {
+                alert("Use o menu do navegador e escolha 'Adicionar à tela inicial'.");
+            }
         });
     </script>
 </body>

@@ -206,8 +206,8 @@ def manifest_cliente():
         "theme_color": "#1e1e2f",
         "orientation": "portrait-primary",
         "icons": [
-            {"src": "/static/icons/cliente-192.png", "sizes": "192x192", "type": "image/png"},
-            {"src": "/static/icons/cliente-512.png", "sizes": "512x512", "type": "image/png"}
+            {"src": "/static/icons/cliente-erp-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/icons/cliente-erp-512.png", "sizes": "512x512", "type": "image/png"}
         ]
     })
 
@@ -430,9 +430,7 @@ def cliente_dashboard():
         total_aberto=total_aberto
     )
 
-# =========================
-# ROTAS DO MENU CLIENTE
-# =========================
+
 @app.route("/cliente/estoque")
 @login_cliente_obrigatorio
 def cliente_estoque():
