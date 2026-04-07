@@ -1140,48 +1140,67 @@ def backup():
 @app.route("/cliente/login", methods=["GET", "POST"])
 def login_cliente():
     if request.method == "POST":
-        telefone_digitado = re.sub(r"\D", "", request.form.get("telefone", ""))
+        telefone = re.sub(r"\D", "", request.form.get("telefone", ""))
         senha = request.form.get("senha", "").strip()
 
-        cliente = None
-        if telefone_digitado:
-            candidatos = Cliente.query.filter(Cliente.telefone.isnot(None)).all()
-            finais_possiveis = []
-            if len(telefone_digitado) >= 8:
-                finais_possiveis.append(telefone_digitado[-8:])
-            if len(telefone_digitado) >= 9:
-                finais_possiveis.append(telefone_digitado[-9:])
-            finais_possiveis.append(telefone_digitado)
+        cliente = Cliente.query.filter(
+            Cliente.telefone.like(f"%{telefone[-8:]}%")
+        ).first()
 
-            for c in candidatos:
-                telefone_cadastro = re.sub(r"\D", "", c.telefone or "")
-                if not telefone_cadastro:
-                    continue
-                if telefone_cadastro == telefone_digitado or any(
-                    telefone_cadastro.endswith(final) for final in finais_possiveis if final
-                ):
-                    cliente = c
-                    break
+        if not cliente:
+            flash("Cliente não encontrado pelo telefone.", "danger")
+            return render_template("cliente_login.html")
 
-        if cliente and cliente.check_senha(senha):
-            cliente.ativo = True
-            if cliente.telefone:
-                cliente.telefone = re.sub(r"\D", "", cliente.telefone)
-            db.session.commit()
+        if not cliente.ativo:
+            flash("Cliente inativo.", "danger")
+            return render_template("cliente_login.html")
 
-            session["cliente_id"] = cliente.id
-            session["cliente_nome"] = cliente.nome
+        if not cliente.check_senha(senha):
+            flash("Senha inválida.", "danger")
+            return render_template("cliente_login.html")
 
-            if getattr(cliente, "trocar_senha_primeiro_acesso", False):
-                flash("No primeiro acesso, altere sua senha.", "warning")
-                return redirect(url_for("cliente_primeira_senha"))
+        session["cliente_id"] = cliente.id
+        session["cliente_nome"] = cliente.nome
 
-            flash("Login realizado com sucesso.", "success")
-            return redirect(url_for("cliente_dashboard"))
-        else:
-            flash("Telefone ou senha inválidos.", "danger")
+        if hasattr(cliente, "trocar_senha_primeiro_acesso") and cliente.trocar_senha_primeiro_acesso:
+            flash("No primeiro acesso, altere sua senha.", "warning")
+            return redirect(url_for("cliente_primeira_senha"))
+
+        flash("Login realizado com sucesso.", "success")
+        return redirect(url_for("cliente_dashboard"))
 
     return render_template("cliente_login.html")
+
+@app.route("/teste_login/<telefone>/<senha>")
+def teste_login(telefone, senha):
+    telefone = re.sub(r"\D", "", telefone)
+
+    cliente = Cliente.query.filter(
+        Cliente.telefone.like(f"%{telefone[-8:]}%")
+    ).first()
+
+    if not cliente:
+        return {"ok": False, "motivo": "cliente_nao_encontrado"}
+
+    if not cliente.ativo:
+        return {"ok": False, "motivo": "cliente_inativo"}
+
+    if not cliente.check_senha(senha):
+        return {
+            "ok": False,
+            "motivo": "senha_invalida",
+            "telefone_banco": cliente.telefone,
+            "telefone_digitado": telefone
+        }
+
+    return {
+        "ok": True,
+        "motivo": "login_ok",
+        "cliente": cliente.nome,
+        "telefone_banco": cliente.telefone,
+        "telefone_digitado": telefone,
+        "primeiro_acesso": getattr(cliente, "trocar_senha_primeiro_acesso", None)
+    }
 
 
 @app.route("/cliente/primeira_senha", methods=["GET", "POST"])
