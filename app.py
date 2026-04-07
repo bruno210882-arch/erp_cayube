@@ -71,6 +71,7 @@ class Cliente(db.Model):
     telefone = db.Column(db.String(20), unique=True)
     senha_hash = db.Column(db.String(255))
     ativo = db.Column(db.Boolean, default=True)
+    trocar_senha_primeiro_acesso = db.Column(db.Boolean, default=True)
 
     def set_senha(self, senha):
         self.senha_hash = generate_password_hash(senha)
@@ -338,6 +339,9 @@ def atualizar_banco():
         with db.engine.connect() as conn:
             conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS senha_hash VARCHAR(255)"))
             conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE"))
+            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS trocar_senha_primeiro_acesso BOOLEAN DEFAULT TRUE"))
+            conn.execute(text("UPDATE cliente SET ativo = TRUE WHERE ativo IS NULL OR ativo = FALSE"))
+            conn.execute(text("UPDATE cliente SET trocar_senha_primeiro_acesso = TRUE WHERE trocar_senha_primeiro_acesso IS NULL"))
             conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS data TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
             conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pedido VARCHAR(30) DEFAULT 'aguardando_aprovacao'"))
             conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pix VARCHAR(30) DEFAULT 'pendente'"))
@@ -351,9 +355,23 @@ def atualizar_banco():
 def resetar_senha_clientes():
     clientes = Cliente.query.all()
     for c in clientes:
+        c.ativo = True
         c.set_senha("123456")
+        c.trocar_senha_primeiro_acesso = True
     db.session.commit()
-    return "Senhas resetadas para 123456"
+    return "Senhas resetadas para 123456 e primeiro acesso habilitado."
+
+
+@app.route("/ativar_clientes")
+def ativar_clientes():
+    clientes = Cliente.query.all()
+    for c in clientes:
+        c.ativo = True
+        if not c.senha_hash:
+            c.set_senha("123456")
+        c.trocar_senha_primeiro_acesso = True
+    db.session.commit()
+    return "Todos os clientes foram ativados com sucesso!"
 
 
 @app.route("/criar_admin")
@@ -486,7 +504,13 @@ def add_cliente():
                 flash("Já existe cliente com esse telefone.", "danger")
                 return redirect(url_for("clientes"))
 
-        novo = Cliente(nome=nome, telefone=telefone, local=local, ativo=True)
+        novo = Cliente(
+            nome=nome,
+            telefone=telefone,
+            local=local,
+            ativo=True,
+            trocar_senha_primeiro_acesso=True,
+        )
         novo.set_senha("123456")
 
         db.session.add(novo)
@@ -522,6 +546,8 @@ def definir_senha_cliente(cliente_id):
             return redirect(url_for("definir_senha_cliente", cliente_id=cliente.id))
 
         cliente.set_senha(senha)
+        cliente.ativo = True
+        cliente.trocar_senha_primeiro_acesso = True
         db.session.commit()
         flash("Senha definida com sucesso.", "success")
         return redirect(url_for("clientes"))
@@ -1072,12 +1098,46 @@ def login_cliente():
         if cliente and cliente.check_senha(senha):
             session["cliente_id"] = cliente.id
             session["cliente_nome"] = cliente.nome
+
+            if cliente.trocar_senha_primeiro_acesso:
+                flash("No primeiro acesso, altere sua senha.", "warning")
+                return redirect(url_for("cliente_primeira_senha"))
+
             flash("Login realizado com sucesso.", "success")
             return redirect(url_for("cliente_dashboard"))
         else:
             flash("Telefone ou senha inválidos.", "danger")
 
     return render_template("cliente_login.html")
+
+
+@app.route("/cliente/primeira_senha", methods=["GET", "POST"])
+def cliente_primeira_senha():
+    if "cliente_id" not in session:
+        return redirect(url_for("login_cliente"))
+
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+
+    if request.method == "POST":
+        nova_senha = request.form.get("nova_senha", "").strip()
+        confirmar_senha = request.form.get("confirmar_senha", "").strip()
+
+        if len(nova_senha) < 4:
+            flash("A nova senha deve ter pelo menos 4 caracteres.", "danger")
+            return redirect(url_for("cliente_primeira_senha"))
+
+        if nova_senha != confirmar_senha:
+            flash("As senhas não conferem.", "danger")
+            return redirect(url_for("cliente_primeira_senha"))
+
+        cliente.set_senha(nova_senha)
+        cliente.trocar_senha_primeiro_acesso = False
+        db.session.commit()
+
+        flash("Senha alterada com sucesso.", "success")
+        return redirect(url_for("cliente_dashboard"))
+
+    return render_template("cliente_primeira_senha.html", cliente=cliente)
 
 
 @app.route("/cliente/logout")

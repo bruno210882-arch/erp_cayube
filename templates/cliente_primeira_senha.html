@@ -1,13 +1,119 @@
-{% extends 'base_cliente.html' %}
-{% block titulo %}Primeiro acesso{% endblock %}
-{% block conteudo %}
-<h2 class="page-title">Primeiro acesso</h2>
-<p class="subtitle">Olá, {{ cliente.nome }}. Defina sua nova senha para continuar.</p>
-<div class="card" style="max-width:520px;">
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Primeiro Acesso</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #0d6efd, #0a58ca);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .logo {
+            width: 120px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #0b5ed7;
+        }
+
+        .alert {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .alert-success {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- LOGO -->
+    <img src="{{ url_for('static', filename='img/logo.png') }}" class="logo">
+
+    <h2>Primeiro acesso</h2>
+    <p>Por segurança, defina uma nova senha para continuar</p>
+
+    <!-- MENSAGENS -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for categoria, mensagem in messages %}
+                <div class="alert alert-{{ categoria }}">
+                    {{ mensagem }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <form method="POST">
-        <div><label>Nova senha</label><input type="password" name="nova_senha" required></div>
-        <div><label>Confirmar senha</label><input type="password" name="confirmar_senha" required></div>
+        <input type="password" name="nova_senha" placeholder="Nova senha" required>
+        <input type="password" name="confirmar_senha" placeholder="Confirmar senha" required>
+
         <button type="submit">Salvar nova senha</button>
     </form>
+
 </div>
-{% endblock %}
+
+</body>
+</html>
