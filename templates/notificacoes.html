@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block titulo %}Notificações{% endblock %}
+{% block conteudo %}
+<h2 class="page-title">Notificações</h2>
+
+<div class="card">
+    <div id="lista-notificacoes">
+        {% for n in notificacoes %}
+        <div class="card {% if not n.lida %}notif-card-nova{% endif %}">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div>
+                    <div style="font-weight:700; margin-bottom:6px;">{{ n.tipo|capitalize }}</div>
+                    <div>{{ n.mensagem }}</div>
+                    <div class="muted" style="margin-top:6px;">{{ n.data.strftime('%d/%m/%Y %H:%M') if n.data else '' }}</div>
+                </div>
+                <div>
+                    {% if not n.lida %}
+                    <a class="btn btn-success" href="{{ url_for('marcar_lida', id=n.id) }}">Marcar como lida</a>
+                    {% else %}
+                    <span class="muted">Lida</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-center">Nenhuma notificação.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+async function recarregarListaNotificacoes() {
+    try {
+        const resposta = await fetch("{{ url_for('api_notificacoes') }}");
+        if (!resposta.ok) return;
+
+        const dados = await resposta.json();
+        const lista = document.getElementById("lista-notificacoes");
+        if (!lista) return;
+
+        if (!dados.itens || dados.itens.length === 0) {
+            lista.innerHTML = "<p class='text-center'>Nenhuma notificação.</p>";
+            return;
+        }
+
+        lista.innerHTML = dados.itens.map(n => `
+            <div class="card ${!n.lida ? 'notif-card-nova' : ''}">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <div>
+                        <div style="font-weight:700; margin-bottom:6px;">${n.tipo}</div>
+                        <div>${n.mensagem}</div>
+                        <div class="muted" style="margin-top:6px;">${n.data}</div>
+                    </div>
+                    <div>
+                        ${!n.lida ? `<a class="btn btn-success" href="/notificacao/lida/${n.id}">Marcar como lida</a>` : `<span class="muted">Lida</span>`}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch (erro) {
+        console.log("Erro ao carregar notificações:", erro);
+    }
+}
+
+setInterval(recarregarListaNotificacoes, 5000);
+</script>
+{% endblock %}
