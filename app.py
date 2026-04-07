@@ -251,6 +251,20 @@ def manifest_cliente():
         ]
     })
 
+@app.route("/corrigir_todas_senhas")
+def corrigir_todas_senhas():
+    clientes = Cliente.query.all()
+
+    for c in clientes:
+        c.set_senha("123456")
+        c.ativo = True
+
+        if hasattr(c, "trocar_senha_primeiro_acesso"):
+            c.trocar_senha_primeiro_acesso = True
+
+    db.session.commit()
+
+    return "Todas as senhas corrigidas!"
 
 @app.route("/service-worker.js")
 def service_worker():
