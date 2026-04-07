@@ -355,6 +355,7 @@ def atualizar_banco():
 def resetar_senha_clientes():
     clientes = Cliente.query.all()
     for c in clientes:
+        c.telefone = re.sub(r"\D", "", c.telefone or "")
         c.ativo = True
         c.set_senha("123456")
         c.trocar_senha_primeiro_acesso = True
@@ -366,12 +367,47 @@ def resetar_senha_clientes():
 def ativar_clientes():
     clientes = Cliente.query.all()
     for c in clientes:
+        c.telefone = re.sub(r"\D", "", c.telefone or "")
         c.ativo = True
         if not c.senha_hash:
             c.set_senha("123456")
         c.trocar_senha_primeiro_acesso = True
     db.session.commit()
     return "Todos os clientes foram ativados com sucesso!"
+
+
+@app.route("/corrigir_telefones_clientes")
+def corrigir_telefones_clientes():
+    clientes = Cliente.query.all()
+    alterados = 0
+
+    for c in clientes:
+        telefone_original = c.telefone or ""
+        telefone_limpo = re.sub(r"\D", "", telefone_original)
+        if telefone_original != telefone_limpo:
+            c.telefone = telefone_limpo
+            alterados += 1
+
+    db.session.commit()
+    return f"Telefones corrigidos com sucesso! {alterados} cadastro(s) atualizados."
+
+
+@app.route("/debug_clientes")
+def debug_clientes():
+    dados = []
+    for c in Cliente.query.order_by(Cliente.id.asc()).all():
+        telefone_limpo = re.sub(r"\D", "", c.telefone or "")
+        dados.append({
+            "id": c.id,
+            "nome": c.nome,
+            "telefone": c.telefone,
+            "telefone_limpo": telefone_limpo,
+            "final_8": telefone_limpo[-8:] if telefone_limpo else "",
+            "ativo": bool(getattr(c, "ativo", False)),
+            "tem_senha": bool(getattr(c, "senha_hash", None)),
+            "primeiro_acesso": bool(getattr(c, "trocar_senha_primeiro_acesso", False)),
+        })
+    return jsonify({"clientes": dados, "total": len(dados)})
 
 
 @app.route("/criar_admin")
@@ -1090,16 +1126,39 @@ def backup():
 @app.route("/cliente/login", methods=["GET", "POST"])
 def login_cliente():
     if request.method == "POST":
-        telefone = re.sub(r"\D", "", request.form.get("telefone", ""))
+        telefone_digitado = re.sub(r"\D", "", request.form.get("telefone", ""))
         senha = request.form.get("senha", "").strip()
 
-        cliente = Cliente.query.filter_by(telefone=telefone, ativo=True).first()
+        cliente = None
+        if telefone_digitado:
+            candidatos = Cliente.query.filter(Cliente.telefone.isnot(None)).all()
+            finais_possiveis = []
+            if len(telefone_digitado) >= 8:
+                finais_possiveis.append(telefone_digitado[-8:])
+            if len(telefone_digitado) >= 9:
+                finais_possiveis.append(telefone_digitado[-9:])
+            finais_possiveis.append(telefone_digitado)
+
+            for c in candidatos:
+                telefone_cadastro = re.sub(r"\D", "", c.telefone or "")
+                if not telefone_cadastro:
+                    continue
+                if telefone_cadastro == telefone_digitado or any(
+                    telefone_cadastro.endswith(final) for final in finais_possiveis if final
+                ):
+                    cliente = c
+                    break
 
         if cliente and cliente.check_senha(senha):
+            cliente.ativo = True
+            if cliente.telefone:
+                cliente.telefone = re.sub(r"\D", "", cliente.telefone)
+            db.session.commit()
+
             session["cliente_id"] = cliente.id
             session["cliente_nome"] = cliente.nome
 
-            if cliente.trocar_senha_primeiro_acesso:
+            if getattr(cliente, "trocar_senha_primeiro_acesso", False):
                 flash("No primeiro acesso, altere sua senha.", "warning")
                 return redirect(url_for("cliente_primeira_senha"))
 
