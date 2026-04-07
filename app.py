@@ -231,6 +231,14 @@ def manifest_erp():
         ]
     })
 
+@app.route("/cliente")
+def cliente_dashboard():
+    if "cliente_id" not in session:
+        return redirect(url_for("login_cliente"))
+
+    cliente = Cliente.query.get(session["cliente_id"])
+
+    return render_template("cliente_dashboard.html", cliente=cliente)
 
 @app.route("/manifest-cliente.webmanifest")
 def manifest_cliente():
