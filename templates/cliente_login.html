@@ -4,202 +4,45 @@
     <meta charset="UTF-8">
     <title>Área do Cliente</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <link rel="manifest" href="{{ url_for('manifest_cliente') }}">
-    <meta name="theme-color" content="#1e1e2f">
+    <meta name="theme-color" content="#132238">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/cliente-erp-192.png') }}">
-
     <style>
-        * { box-sizing: border-box; }
-
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f4f6f9;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-
-        .box {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 360px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        .logo-area {
-            text-align: center;
-            margin-bottom: 18px;
-        }
-
-        .logo-area img {
-            max-height: 72px;
-            width: auto;
-            object-fit: contain;
-        }
-
-        h2 {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #1e1e2f;
-        }
-
-        .mensagem {
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            font-size: 14px;
-        }
-
-        .mensagem.success { background: #d4edda; color: #155724; }
-        .mensagem.danger { background: #f8d7da; color: #721c24; }
-        .mensagem.warning { background: #fff3cd; color: #856404; }
-
-        label {
-            display: block;
-            margin-top: 12px;
-            margin-bottom: 6px;
-            font-weight: bold;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            font-size: 15px;
-        }
-
-        input:focus {
-            border-color: #1e1e2f;
-            outline: none;
-        }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 18px;
-            border-radius: 8px;
-            border: none;
-            background: #1e1e2f;
-            color: white;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #33334d;
-        }
-
-        .rodape {
-            text-align: center;
-            margin-top: 14px;
-            font-size: 13px;
-            color: #666;
-        }
-
-        #btnInstalarApp {
-            display: none;
-            margin-top: 10px;
-            background: #198754;
-        }
+        *{box-sizing:border-box} body{margin:0;min-height:100vh;font-family:Arial,sans-serif;background:radial-gradient(circle at top,#bfdbfe 0,#eaf2ff 32%,#f4f7fb 62%,#eef3f8 100%);display:flex;align-items:center;justify-content:center;padding:24px;color:#18212f}
+        .wrap{width:100%;max-width:1120px;display:grid;grid-template-columns:1.05fr .95fr;gap:24px;align-items:center}.hero h1{font-size:42px;margin:0 0 12px}.hero p{font-size:18px;line-height:1.6;color:#475467}.list{display:grid;gap:10px;margin-top:18px}.item{background:rgba(255,255,255,.74);border:1px solid rgba(148,163,184,.22);padding:12px 14px;border-radius:18px;font-weight:700}
+        .box{background:rgba(255,255,255,.9);border:1px solid rgba(226,232,240,.9);box-shadow:0 30px 60px rgba(15,23,42,.12);backdrop-filter:blur(10px);padding:34px;border-radius:28px}.logo-area{text-align:center;margin-bottom:16px}.logo-area img{width:min(100%,320px);max-height:180px;object-fit:contain;filter:drop-shadow(0 20px 30px rgba(8,145,178,.15))}
+        h2{text-align:center;font-size:30px;margin:6px 0 8px}.subtitle{text-align:center;color:#667085;margin:0 0 22px}.mensagem{padding:12px 14px;border-radius:14px;margin-bottom:12px;font-size:14px;font-weight:700}.mensagem.success{background:#ecfdf3;color:#166534;border:1px solid #bbf7d0}.mensagem.danger{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}.field{margin-bottom:14px}.field label{display:block;font-weight:700;margin-bottom:8px}.field input{width:100%;padding:14px 15px;border:1px solid #d5deec;border-radius:16px;font-size:15px}.btn{width:100%;padding:14px 18px;border:none;border-radius:16px;font-weight:800;font-size:15px;cursor:pointer;color:#fff;background:linear-gradient(135deg,#1d4ed8,#0891b2)}
+        @media (max-width:920px){.wrap{grid-template-columns:1fr}.hero h1{font-size:34px}.box{padding:26px}}
     </style>
 </head>
 <body>
-    <div class="box">
-        <div class="logo-area">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logomarca">
+<div class="wrap">
+    <div class="hero">
+        <h1>Faça seus pedidos com mais praticidade.</h1>
+        <p>Acompanhe histórico, itens em aberto, pagamentos via PIX e estoque disponível em uma área do cliente muito mais agradável.</p>
+        <div class="list">
+            <div class="item">Pedidos e histórico organizados</div>
+            <div class="item">Pagamento PIX e acompanhamento</div>
+            <div class="item">Interface mais bonita no celular</div>
         </div>
-
+    </div>
+    <div class="box">
+        <div class="logo-area"><img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Cayube"></div>
         <h2>Área do Cliente</h2>
-
+        <p class="subtitle">Entre com seus dados para continuar.</p>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="mensagem {{ category }}">{{ message }}</div>
+                    <div class="mensagem {{ category if category in ['success','danger'] else 'success' }}">{{ message }}</div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
-
         <form method="POST">
-            <label>Telefone</label>
-            <input
-                type="text"
-                name="telefone"
-                id="telefone"
-                placeholder="(19) 99999-9999"
-                maxlength="15"
-                required
-            >
-
-            <label>Senha</label>
-            <input
-                type="password"
-                name="senha"
-                placeholder="Digite sua senha"
-                required
-            >
-
-            <button type="submit">Entrar</button>
-            <button type="button" id="btnInstalarApp">Instalar App</button>
+            <div class="field"><label>Usuário</label><input type="text" name="usuario" placeholder="Seu usuário" required></div>
+            <div class="field"><label>Senha</label><input type="password" name="senha" placeholder="Sua senha" required></div>
+            <button type="submit" class="btn">Entrar</button>
         </form>
-
-        <div class="rodape">
-            Digite apenas os números
-        </div>
     </div>
-
-    <script>
-        const telefoneInput = document.getElementById("telefone");
-
-        telefoneInput.addEventListener("input", function (e) {
-            let v = e.target.value.replace(/\D/g, "");
-
-            if (v.length > 11) {
-                v = v.slice(0, 11);
-            }
-
-            if (v.length >= 11) {
-                v = v.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
-            } else if (v.length >= 7) {
-                v = v.replace(/^(\d{2})(\d{5})/, "($1) $2");
-            } else if (v.length >= 3) {
-                v = v.replace(/^(\d{2})(\d+)/, "($1) $2");
-            } else if (v.length > 0) {
-                v = v.replace(/^(\d+)/, "($1");
-            }
-
-            e.target.value = v;
-        });
-
-        if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("/cliente-sw.js", { scope: "/cliente/" });
-        }
-
-        let deferredPrompt = null;
-        const installBtn = document.getElementById("btnInstalarApp");
-
-        window.addEventListener("beforeinstallprompt", (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            installBtn.style.display = "block";
-        });
-
-        installBtn.addEventListener("click", async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                await deferredPrompt.userChoice;
-                deferredPrompt = null;
-                installBtn.style.display = "none";
-            } else {
-                alert("Use o menu do navegador e escolha 'Adicionar à tela inicial'.");
-            }
-        });
-    </script>
+</div>
 </body>
 </html>

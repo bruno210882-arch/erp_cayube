@@ -1,73 +1,46 @@
 {% extends "base.html" %}
 {% block conteudo %}
-
-<h2>Pedidos dos Clientes</h2>
-
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div style="
-                padding: 12px;
-                border-radius: 8px;
-                margin-bottom: 15px;
-                background:
-                    {% if category == 'success' %}#d4edda
-                    {% elif category == 'danger' %}#f8d7da
-                    {% elif category == 'warning' %}#fff3cd
-                    {% else %}#d1ecf1{% endif %};
-                color:
-                    {% if category == 'success' %}#155724
-                    {% elif category == 'danger' %}#721c24
-                    {% elif category == 'warning' %}#856404
-                    {% else %}#0c5460{% endif %};
-            ">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
-
-<div style="background:white; padding:20px; border-radius:12px; overflow-x:auto;">
-    <table style="width:100%; border-collapse:collapse;">
-        <tr>
-            <th style="padding:10px; border:1px solid #ddd;">ID</th>
-            <th style="padding:10px; border:1px solid #ddd;">Cliente</th>
-            <th style="padding:10px; border:1px solid #ddd;">Produto</th>
-            <th style="padding:10px; border:1px solid #ddd;">Qtd</th>
-            <th style="padding:10px; border:1px solid #ddd;">Total</th>
-            <th style="padding:10px; border:1px solid #ddd;">Pedido</th>
-            <th style="padding:10px; border:1px solid #ddd;">PIX</th>
-            <th style="padding:10px; border:1px solid #ddd;">Data</th>
-            <th style="padding:10px; border:1px solid #ddd;">Ações</th>
-        </tr>
-
+<div class="hero">
+    <div>
+        <h2>Pedidos dos Clientes</h2>
+        <p>Centralize aprovações, recusas e confirmações de PIX em um painel único.</p>
+    </div>
+    <div class="hero-badge">Gestão de pedidos</div>
+</div>
+<div class="card">
+    {% if pedidos %}
+    <table>
+        <tr><th>ID</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Total</th><th>Pedido</th><th>PIX</th><th>Data</th><th>Ações</th></tr>
         {% for venda, cliente, produto in pedidos %}
         <tr>
-            <td style="padding:10px; border:1px solid #ddd;">{{ venda.id }}</td>
-            <td style="padding:10px; border:1px solid #ddd;">{{ cliente.nome }}</td>
-            <td style="padding:10px; border:1px solid #ddd;">{{ produto.nome }}</td>
-            <td style="padding:10px; border:1px solid #ddd;">{{ venda.quantidade }}</td>
-            <td style="padding:10px; border:1px solid #ddd;">R$ {{ "%.2f"|format(venda.total) }}</td>
-            <td style="padding:10px; border:1px solid #ddd;">{{ venda.status_pedido }}</td>
-            <td style="padding:10px; border:1px solid #ddd;">{{ venda.status_pix }}</td>
-            <td style="padding:10px; border:1px solid #ddd;">{{ venda.data.strftime('%d/%m/%Y %H:%M') }}</td>
-            <td style="padding:10px; border:1px solid #ddd;">
-                {% if venda.status_pedido == "aguardando_aprovacao" %}
-                    <a href="{{ url_for('aprovar_pedido', venda_id=venda.id) }}">Aprovar Pedido</a> |
-                    <a href="{{ url_for('recusar_pedido', venda_id=venda.id) }}">Recusar</a>
-                {% endif %}
-
-                {% if venda.status_pedido == "aprovado" and venda.status_pix != "pago" %}
-                    | <a href="{{ url_for('confirmar_pix', venda_id=venda.id) }}">Confirmar PIX</a>
-                {% endif %}
+            <td>{{ venda.id }}</td>
+            <td><strong>{{ cliente.nome }}</strong></td>
+            <td>{{ produto.nome }}</td>
+            <td>{{ venda.quantidade }}</td>
+            <td>R$ {{ "%.2f"|format(venda.total) }}</td>
+            <td>
+                {% if venda.status_pedido == 'aguardando_aprovacao' %}<span class="pill warning">Aguardando</span>
+                {% elif venda.status_pedido == 'aprovado' %}<span class="pill success">Aprovado</span>
+                {% else %}<span class="pill">{{ venda.status_pedido }}</span>{% endif %}
             </td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="9" style="padding:10px; border:1px solid #ddd; text-align:center;">Nenhum pedido encontrado.</td>
+            <td>{% if venda.status_pix == 'pago' %}<span class="pill success">Pago</span>{% else %}<span class="pill warning">{{ venda.status_pix }}</span>{% endif %}</td>
+            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td>
+                <div class="actions-inline">
+                    {% if venda.status_pedido == "aguardando_aprovacao" %}
+                        <a href="{{ url_for('aprovar_pedido', venda_id=venda.id) }}" class="btn btn-success">Aprovar</a>
+                        <a href="{{ url_for('recusar_pedido', venda_id=venda.id) }}" class="btn btn-danger">Recusar</a>
+                    {% endif %}
+                    {% if venda.status_pedido == "aprovado" and venda.status_pix != "pago" %}
+                        <a href="{{ url_for('confirmar_pix', venda_id=venda.id) }}" class="btn">Confirmar PIX</a>
+                    {% endif %}
+                </div>
+            </td>
         </tr>
         {% endfor %}
     </table>
+    {% else %}
+    <div class="empty-state">Nenhum pedido encontrado.</div>
+    {% endif %}
 </div>
-
 {% endblock %}

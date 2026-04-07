@@ -1,88 +1,58 @@
 {% extends 'base.html' %}
 {% block conteudo %}
-
-<h2>📦 Produtos</h2>
-
+<div class="hero">
+    <div>
+        <h2>Produtos</h2>
+        <p>Cadastre itens, acompanhe margem e controle seu estoque com mais clareza.</p>
+    </div>
+    <div class="hero-badge">Catálogo e margem</div>
+</div>
 <div class="grid-cards">
-
-    <!-- CADASTRO -->
     <div class="card">
-        <h3>Cadastrar Produto</h3>
-
+        <h3 class="section-title">Cadastrar Produto</h3>
         <form method="POST" action="{{ url_for('add_produto') }}">
-            <label>Nome</label>
-            <input type="text" name="nome" required>
-
-            <label>Preço</label>
-            <input type="number" step="0.01" name="preco" required>
-
-            <label>Custo</label>
-            <input type="number" step="0.01" name="custo" required>
-
-            <label>Estoque Inicial</label>
-            <input type="number" name="estoque" required>
-
+            <div class="field"><label>Nome</label><input type="text" name="nome" required></div>
+            <div class="form-grid">
+                <div class="field"><label>Preço</label><input type="number" step="0.01" name="preco" required></div>
+                <div class="field"><label>Custo</label><input type="number" step="0.01" name="custo" required></div>
+                <div class="field"><label>Estoque Inicial</label><input type="number" name="estoque" required></div>
+            </div>
             <button type="submit">Cadastrar</button>
         </form>
     </div>
-
-    <!-- RESUMO -->
     <div class="card">
-        <h3>Resumo</h3>
-
-        <p>Total de Produtos:
-            <b>{{ produtos|length }}</b>
-        </p>
-
-        <p>Total em Estoque:
-            <b>{{ produtos|sum(attribute='estoque') }}</b>
-        </p>
-
-        <p>Valor Investido:
-            <b>
-                R$ {{
-                    "%.2f"|format(
-                        produtos|sum(attribute='custo')
-                    )
-                }}
-            </b>
-        </p>
+        <h3 class="section-title">Resumo</h3>
+        <div class="resumo-grid">
+            <div class="resumo-item"><h3>Total de Produtos</h3><p>{{ produtos|length }}</p></div>
+            <div class="resumo-item"><h3>Total em Estoque</h3><p>{{ produtos|sum(attribute='estoque') }}</p></div>
+            <div class="resumo-item"><h3>Valor Investido</h3><p>R$ {{ "%.2f"|format(produtos|sum(attribute='custo')) }}</p></div>
+        </div>
     </div>
-
 </div>
-
-<h3>Lista de Produtos</h3>
-
-<table>
-    <tr>
-        <th>ID</th>
-        <th>Nome</th>
-        <th>Preço</th>
-        <th>Custo</th>
-        <th>Lucro</th>
-        <th>Estoque</th>
-        <th>Ações</th>
-    </tr>
-
-    {% for p in produtos %}
-    <tr>
-        <td>{{ p.id }}</td>
-        <td>{{ p.nome }}</td>
-        <td>R$ {{ "%.2f"|format(p.preco) }}</td>
-        <td>R$ {{ "%.2f"|format(p.custo) }}</td>
-        <td class="success">
-            R$ {{ "%.2f"|format(p.preco - p.custo) }}
-        </td>
-        <td class="{% if p.estoque <= 5 %}danger{% endif %}">
-            {{ p.estoque }}
-        </td>
-        <td>
-            <a href="{{ url_for('excluir_produto', id=p.id) }}">
-                <button style="background:#c62828;">Excluir</button>
-            </a>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
-
+<div class="card">
+    <div class="toolbar">
+        <div>
+            <h3 class="panel-title">Lista de Produtos</h3>
+            <div class="sub">Margem individual e atenção para itens com estoque baixo.</div>
+        </div>
+    </div>
+    {% if produtos %}
+    <table>
+        <tr><th>ID</th><th>Nome</th><th>Preço</th><th>Custo</th><th>Lucro</th><th>Estoque</th><th>Ações</th></tr>
+        {% for p in produtos %}
+        <tr>
+            <td>{{ p.id }}</td>
+            <td><strong>{{ p.nome }}</strong></td>
+            <td>R$ {{ "%.2f"|format(p.preco) }}</td>
+            <td>R$ {{ "%.2f"|format(p.custo) }}</td>
+            <td class="success">R$ {{ "%.2f"|format(p.preco - p.custo) }}</td>
+            <td>{% if p.estoque <= 5 %}<span class="pill warning">{{ p.estoque }}</span>{% else %}{{ p.estoque }}{% endif %}</td>
+            <td><a href="{{ url_for('excluir_produto', id=p.id) }}" class="btn btn-danger">Excluir</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <div class="empty-state">Nenhum produto cadastrado.</div>
+    {% endif %}
+</div>
 {% endblock %}

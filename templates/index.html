@@ -1,62 +1,36 @@
 {% extends 'base.html' %}
 {% block conteudo %}
-
-<h2>📊 Dashboard</h2>
-
-<div class="grid-cards">
-
-    <div class="card">
-        <h3>💰 Dinheiro</h3>
-        <p>R$ {{ "%.2f"|format(saldo.dinheiro or 0) }}</p>
+<div class="hero">
+    <div>
+        <h2>Dashboard do ERP</h2>
+        <p>Visão rápida do caixa, estoque, fiado e desempenho das vendas.</p>
     </div>
-
-    <div class="card">
-        <h3>🏦 Conta</h3>
-        <p>R$ {{ "%.2f"|format(saldo.conta or 0) }}</p>
-    </div>
-
-    <div class="card">
-        <h3>💵 Total Caixa</h3>
-        <p>R$ {{ "%.2f"|format((saldo.dinheiro or 0) + (saldo.conta or 0)) }}</p>
-    </div>
-
-    <div class="card">
-        <h3>📈 Vendas Recebidas</h3>
-        <p>R$ {{ "%.2f"|format(total_vendas or 0) }}</p>
-    </div>
-
-    <div class="card">
-        <h3>💳 Total Fiado</h3>
-        <p>R$ {{ "%.2f"|format(total_fiado or 0) }}</p>
-    </div>
-
-    <div class="card">
-        <h3>📦 Itens em Estoque</h3>
-        <p>{{ total_estoque or 0 }}</p>
-    </div>
-
-    <div class="card">
-        <h3>🔥 Lucro Total</h3>
-        <p>R$ {{ "%.2f"|format(lucro_total or 0) }}</p>
-    </div>
-
+    <div class="hero-badge">Resumo operacional do dia</div>
 </div>
-
+<div class="stats-grid">
+    <div class="stat-card"><h3>Dinheiro</h3><p>R$ {{ "%.2f"|format(saldo.dinheiro or 0) }}</p></div>
+    <div class="stat-card"><h3>Conta</h3><p>R$ {{ "%.2f"|format(saldo.conta or 0) }}</p></div>
+    <div class="stat-card"><h3>Total Caixa</h3><p>R$ {{ "%.2f"|format((saldo.dinheiro or 0) + (saldo.conta or 0)) }}</p></div>
+    <div class="stat-card"><h3>Vendas Recebidas</h3><p>R$ {{ "%.2f"|format(total_vendas or 0) }}</p></div>
+    <div class="stat-card"><h3>Total Fiado</h3><p>R$ {{ "%.2f"|format(total_fiado or 0) }}</p></div>
+    <div class="stat-card"><h3>Itens em Estoque</h3><p>{{ total_estoque or 0 }}</p></div>
+    <div class="stat-card"><h3>Lucro Total</h3><p>R$ {{ "%.2f"|format(lucro_total or 0) }}</p></div>
+</div>
 {% if produtos_baixo_estoque %}
-<h3>⚠️ Produtos com estoque baixo</h3>
-<table>
-    <tr>
-        <th>Produto</th>
-        <th>Estoque</th>
-    </tr>
-
-    {% for p in produtos_baixo_estoque %}
-    <tr>
-        <td>{{ p.nome }}</td>
-        <td class="danger">{{ p.estoque }}</td>
-    </tr>
-    {% endfor %}
-</table>
+<div class="card">
+    <div class="toolbar">
+        <div>
+            <h3 class="panel-title">Produtos com estoque baixo</h3>
+            <div class="sub">Acompanhe os itens que merecem reposição imediata.</div>
+        </div>
+        <span class="pill warning">Atenção ao estoque</span>
+    </div>
+    <table>
+        <tr><th>Produto</th><th>Estoque</th></tr>
+        {% for p in produtos_baixo_estoque %}
+        <tr><td>{{ p.nome }}</td><td class="danger">{{ p.estoque }}</td></tr>
+        {% endfor %}
+    </table>
+</div>
 {% endif %}
-
 {% endblock %}

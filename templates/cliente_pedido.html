@@ -1,24 +1,27 @@
 {% extends "base_cliente.html" %}
 {% block conteudo %}
-
+<div class="hero">
+    <div>
+        <h2>Novo Pedido</h2>
+        <p>Escolha o produto, informe a quantidade e envie seu pedido com rapidez.</p>
+    </div>
+    <span class="pill">Pedido online</span>
+</div>
 <div class="card">
-    <h2>Novo Pedido</h2>
-
     <form method="POST">
-        <label>Produto</label>
-        <select name="produto" required>
-            {% for produto in produtos %}
-            <option value="{{ produto.id }}">
-                {{ produto.nome }} - R$ {{ "%.2f"|format(produto.preco) }} - Estoque: {{ produto.estoque }}
-            </option>
-            {% endfor %}
-        </select>
-
-        <label>Quantidade</label>
-        <input type="number" name="quantidade" min="1" required>
-
-        <button type="submit">Enviar Pedido</button>
+        <div class="field">
+            <label>Produto</label>
+            <select name="produto" required>
+                {% for produto in produtos %}
+                <option value="{{ produto.id }}">{{ produto.nome }} - R$ {{ "%.2f"|format(produto.preco) }} - Estoque: {{ produto.estoque }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label>Quantidade</label>
+            <input type="number" name="quantidade" min="1" required>
+        </div>
+        <button type="submit" class="btn">Enviar Pedido</button>
     </form>
 </div>
-
 {% endblock %}
