@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block titulo %}Baixa de Estoque{% endblock %}
+{% block conteudo %}
+
+<section class="hero">
+    <div>
+        <h2>Baixa de Estoque</h2>
+        <p>Registre consumo interno, perda, avaria ou uso operacional sem gerar venda, caixa ou dívida.</p>
+    </div>
+    <div class="hero-badge">Controle interno de estoque</div>
+</section>
+
+<div class="grid-cards" style="align-items:start;">
+    <div class="card">
+        <div class="toolbar">
+            <div>
+                <h3 class="panel-title">Lançar baixa</h3>
+                <div class="sub">Essa operação reduz apenas o estoque.</div>
+            </div>
+        </div>
+
+        <form method="POST" class="form-grid">
+            <div style="margin-bottom:14px;">
+                <label for="produto"><strong>Produto</strong></label>
+                <select id="produto" name="produto" required>
+                    <option value="">Selecione</option>
+                    {% for produto in produtos %}
+                    <option value="{{ produto.id }}">{{ produto.nome }} (estoque: {{ produto.estoque }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label for="quantidade"><strong>Quantidade</strong></label>
+                <input id="quantidade" type="number" name="quantidade" min="1" required>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label for="motivo_tipo"><strong>Motivo</strong></label>
+                <select id="motivo_tipo" name="motivo_tipo" required>
+                    <option value="consumo_interno">Consumo interno</option>
+                    <option value="perda">Perda</option>
+                    <option value="avaria">Avaria</option>
+                    <option value="uso_operacional">Uso operacional</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:18px;">
+                <label for="observacao"><strong>Observação</strong></label>
+                <input id="observacao" type="text" name="observacao" maxlength="100" placeholder="Opcional">
+            </div>
+
+            <button type="submit">Registrar baixa</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="toolbar">
+            <div>
+                <h3 class="panel-title">Últimas baixas e saídas</h3>
+                <div class="sub">Histórico das movimentações do estoque.</div>
+            </div>
+        </div>
+
+        <div style="overflow:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Produto</th>
+                        <th>Tipo</th>
+                        <th>Quantidade</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mov, produto in movimentos %}
+                    <tr>
+                        <td>{{ mov.data.strftime("%d/%m/%Y %H:%M") if mov.data else "" }}</td>
+                        <td>{{ produto.nome }}</td>
+                        <td>{{ mov.tipo }}</td>
+                        <td>{{ mov.quantidade }}</td>
+                        <td>{{ mov.motivo }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5">Nenhuma movimentação encontrada.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

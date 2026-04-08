@@ -80,7 +80,8 @@
                 <a href="{{ url_for('backup') }}">Backup</a>
                 <a href="{{ url_for('notificacoes') }}">Notificações</a>
                 <a href="{{ url_for('logout') }}">Sair</a>
-            </nav>
+                <a href="/baixa_estoque">Baixa de Estoque</a>
+        </nav>
         </div>
         <main class="page">
             {% with messages = get_flashed_messages(with_categories=true) %}

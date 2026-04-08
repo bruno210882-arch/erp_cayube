@@ -960,6 +960,64 @@ def entrada_estoque():
     )
 
 
+
+
+@app.route("/baixa_estoque", methods=["GET", "POST"])
+@login_obrigatorio
+def baixa_estoque():
+    if request.method == "POST":
+        try:
+            produto_id = int(request.form["produto"])
+            quantidade = int(request.form["quantidade"])
+            motivo_tipo = (request.form.get("motivo_tipo") or "consumo_interno").strip()
+            observacao = (request.form.get("observacao") or "").strip()
+
+            produto = Produto.query.get_or_404(produto_id)
+
+            if quantidade <= 0:
+                flash("Informe uma quantidade válida.", "danger")
+                return redirect(url_for("baixa_estoque"))
+
+            if (produto.estoque or 0) < quantidade:
+                flash("Estoque insuficiente para realizar a baixa.", "danger")
+                return redirect(url_for("baixa_estoque"))
+
+            motivo_base = {
+                "consumo_interno": "Consumo interno",
+                "perda": "Perda",
+                "avaria": "Avaria",
+                "uso_operacional": "Uso operacional"
+            }.get(motivo_tipo, "Baixa manual")
+
+            motivo = motivo_base if not observacao else f"{motivo_base} - {observacao}"
+
+            produto.estoque -= quantidade
+
+            db.session.add(MovimentoEstoque(
+                produto_id=produto.id,
+                tipo="saida",
+                quantidade=quantidade,
+                motivo=motivo
+            ))
+
+            db.session.commit()
+            flash("Baixa de estoque registrada com sucesso, sem gerar valor de venda.", "success")
+            return redirect(url_for("baixa_estoque"))
+
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao registrar baixa de estoque: {str(e)}"
+
+    produtos = Produto.query.order_by(Produto.nome.asc()).all()
+    movimentos = (
+        db.session.query(MovimentoEstoque, Produto)
+        .join(Produto, MovimentoEstoque.produto_id == Produto.id)
+        .order_by(MovimentoEstoque.data.desc())
+        .all()
+    )
+
+    return render_template("baixa_estoque.html", produtos=produtos, movimentos=movimentos)
+
 @app.route("/relatorio_financeiro")
 @login_obrigatorio
 def relatorio_financeiro():
