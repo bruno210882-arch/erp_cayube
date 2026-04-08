@@ -3,9 +3,9 @@
 <div class="hero">
     <div>
         <h2>Itens em Aberto</h2>
-        <p>Acompanhe seus valores pendentes e pague com PIX quando desejar.</p>
+        <p>Somente pendências do cliente logado aparecem aqui.</p>
     </div>
-    <span class="pill warning">Acompanhe pendências</span>
+    <span class="pill warning">Pendências</span>
 </div>
 <div class="resumo-grid">
     <div class="resumo-item"><h3>Cliente</h3><p style="font-size:22px">{{ cliente.nome }}</p></div>
@@ -13,18 +13,20 @@
 </div>
 <div class="card">
     {% if itens_abertos %}
+    <div class="table-wrap">
     <table>
         <tr><th>ID</th><th>Produto</th><th>Quantidade</th><th>Total</th><th>Forma</th><th>Status</th><th>Data</th></tr>
         {% for venda, produto in itens_abertos %}
         <tr>
             <td>{{ venda.id }}</td><td>{{ produto.nome }}</td><td>{{ venda.quantidade }}</td><td>R$ {{ "%.2f"|format(venda.total or 0) }}</td><td>{{ venda.forma_pagamento or "Não informado" }}</td>
             <td>{% if venda.status_pix == 'pendente' %}<span class="pill warning">PIX pendente</span>{% elif venda.pago %}<span class="pill success">Pago</span>{% else %}<span class="pill">Em aberto</span>{% endif %}</td>
-            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') if venda.data else '' }}</td>
         </tr>
         {% endfor %}
     </table>
+    </div>
     {% else %}
-    <div class="empty-state">Nenhum item em aberto.</div>
+    <div class="empty-state">Nenhum item em aberto para este cliente.</div>
     {% endif %}
 </div>
 {% if total_aberto > 0 %}

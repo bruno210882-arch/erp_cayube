@@ -1,23 +1,35 @@
 {% extends "base_cliente.html" %}
+{% block titulo %}PIX em Aberto{% endblock %}
 {% block conteudo %}
+<div class="hero">
+    <div>
+        <h2>Pagamento de Valores em Aberto</h2>
+        <p>Esta tela mostra apenas os valores pendentes do cliente logado.</p>
+    </div>
+    <span class="pill warning">Em aberto</span>
+</div>
 
-<div class="card">
-    <h2>Pagamento de Valores em Aberto</h2>
-
-    <p><strong>Cliente:</strong> {{ cliente.nome }}</p>
-    <p><strong>Total em aberto:</strong> R$ {{ "%.2f"|format(valor_aberto) }}</p>
+<div class="resumo-grid">
+    <div class="resumo-item"><h3>Cliente</h3><p style="font-size:22px">{{ cliente.nome }}</p></div>
+    <div class="resumo-item"><h3>Total em aberto</h3><p>R$ {{ "%.2f"|format(valor_aberto or 0) }}</p></div>
 </div>
 
 <div class="card" style="text-align:center;">
-    <h3>QR Code PIX</h3>
-    <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code PIX" style="max-width:300px; width:100%;">
+    <h3 style="margin-top:0;">QR Code PIX</h3>
+    <p style="color:var(--muted);">Escaneie o QR Code abaixo para quitar os valores pendentes.</p>
+    <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code PIX" style="max-width:320px;width:100%;border-radius:18px;border:1px solid var(--line);padding:14px;background:#fff;">
 </div>
 
 <div class="card">
-    <h3>PIX Copia e Cola</h3>
-    <textarea id="pixCode" readonly style="width:100%; height:120px;">{{ payload_pix }}</textarea>
-    <br><br>
-    <button onclick="copiarPix()">Copiar código PIX</button>
+    <h3 style="margin-top:0;">PIX Copia e Cola</h3>
+    <p style="color:var(--muted);">Copie e cole no aplicativo do seu banco.</p>
+    <div class="field">
+        <textarea id="pixCode" readonly style="min-height:130px;">{{ payload_pix }}</textarea>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="btn" type="button" onclick="copiarPix()">Copiar código PIX</button>
+        <a href="{{ url_for('cliente_itens_em_aberto') }}" class="btn btn-secondary">Voltar para Em Aberto</a>
+    </div>
 </div>
 
 <script>
@@ -29,5 +41,4 @@ function copiarPix() {
     alert("Código PIX copiado com sucesso!");
 }
 </script>
-
 {% endblock %}

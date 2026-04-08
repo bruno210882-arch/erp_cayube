@@ -231,14 +231,6 @@ def manifest_erp():
         ]
     })
 
-@app.route("/cliente")
-def cliente_dashboard():
-    if "cliente_id" not in session:
-        return redirect(url_for("login_cliente"))
-
-    cliente = Cliente.query.get(session["cliente_id"])
-
-    return render_template("cliente_dashboard.html", cliente=cliente)
 
 @app.route("/manifest-cliente.webmanifest")
 def manifest_cliente():
@@ -259,20 +251,6 @@ def manifest_cliente():
         ]
     })
 
-@app.route("/corrigir_todas_senhas")
-def corrigir_todas_senhas():
-    clientes = Cliente.query.all()
-
-    for c in clientes:
-        c.set_senha("123456")
-        c.ativo = True
-
-        if hasattr(c, "trocar_senha_primeiro_acesso"):
-            c.trocar_senha_primeiro_acesso = True
-
-    db.session.commit()
-
-    return "Todas as senhas corrigidas!"
 
 @app.route("/service-worker.js")
 def service_worker():
@@ -1148,67 +1126,48 @@ def backup():
 @app.route("/cliente/login", methods=["GET", "POST"])
 def login_cliente():
     if request.method == "POST":
-        telefone = re.sub(r"\D", "", request.form.get("telefone", ""))
+        telefone_digitado = re.sub(r"\D", "", request.form.get("telefone", ""))
         senha = request.form.get("senha", "").strip()
 
-        cliente = Cliente.query.filter(
-            Cliente.telefone.like(f"%{telefone[-8:]}%")
-        ).first()
+        cliente = None
+        if telefone_digitado:
+            candidatos = Cliente.query.filter(Cliente.telefone.isnot(None)).all()
+            finais_possiveis = []
+            if len(telefone_digitado) >= 8:
+                finais_possiveis.append(telefone_digitado[-8:])
+            if len(telefone_digitado) >= 9:
+                finais_possiveis.append(telefone_digitado[-9:])
+            finais_possiveis.append(telefone_digitado)
 
-        if not cliente:
-            flash("Cliente não encontrado pelo telefone.", "danger")
-            return render_template("cliente_login.html")
+            for c in candidatos:
+                telefone_cadastro = re.sub(r"\D", "", c.telefone or "")
+                if not telefone_cadastro:
+                    continue
+                if telefone_cadastro == telefone_digitado or any(
+                    telefone_cadastro.endswith(final) for final in finais_possiveis if final
+                ):
+                    cliente = c
+                    break
 
-        if not cliente.ativo:
-            flash("Cliente inativo.", "danger")
-            return render_template("cliente_login.html")
+        if cliente and cliente.check_senha(senha):
+            cliente.ativo = True
+            if cliente.telefone:
+                cliente.telefone = re.sub(r"\D", "", cliente.telefone)
+            db.session.commit()
 
-        if not cliente.check_senha(senha):
-            flash("Senha inválida.", "danger")
-            return render_template("cliente_login.html")
+            session["cliente_id"] = cliente.id
+            session["cliente_nome"] = cliente.nome
 
-        session["cliente_id"] = cliente.id
-        session["cliente_nome"] = cliente.nome
+            if getattr(cliente, "trocar_senha_primeiro_acesso", False):
+                flash("No primeiro acesso, altere sua senha.", "warning")
+                return redirect(url_for("cliente_primeira_senha"))
 
-        if hasattr(cliente, "trocar_senha_primeiro_acesso") and cliente.trocar_senha_primeiro_acesso:
-            flash("No primeiro acesso, altere sua senha.", "warning")
-            return redirect(url_for("cliente_primeira_senha"))
-
-        flash("Login realizado com sucesso.", "success")
-        return redirect(url_for("cliente_dashboard"))
+            flash("Login realizado com sucesso.", "success")
+            return redirect(url_for("cliente_dashboard"))
+        else:
+            flash("Telefone ou senha inválidos.", "danger")
 
     return render_template("cliente_login.html")
-
-@app.route("/teste_login/<telefone>/<senha>")
-def teste_login(telefone, senha):
-    telefone = re.sub(r"\D", "", telefone)
-
-    cliente = Cliente.query.filter(
-        Cliente.telefone.like(f"%{telefone[-8:]}%")
-    ).first()
-
-    if not cliente:
-        return {"ok": False, "motivo": "cliente_nao_encontrado"}
-
-    if not cliente.ativo:
-        return {"ok": False, "motivo": "cliente_inativo"}
-
-    if not cliente.check_senha(senha):
-        return {
-            "ok": False,
-            "motivo": "senha_invalida",
-            "telefone_banco": cliente.telefone,
-            "telefone_digitado": telefone
-        }
-
-    return {
-        "ok": True,
-        "motivo": "login_ok",
-        "cliente": cliente.nome,
-        "telefone_banco": cliente.telefone,
-        "telefone_digitado": telefone,
-        "primeiro_acesso": getattr(cliente, "trocar_senha_primeiro_acesso", None)
-    }
 
 
 @app.route("/cliente/primeira_senha", methods=["GET", "POST"])
@@ -1262,14 +1221,16 @@ def cliente_dashboard():
     )
 
     total_pedidos = sum((venda.total or 0) for venda, _produto in pedidos)
-    total_aberto = cliente.divida or 0
+    total_aberto = sum((venda.total or 0) for venda, _produto in pedidos if not venda.pago and venda.status_pedido != "recusado")
+    qtd_pedidos = len(pedidos)
 
     return render_template(
         "cliente_dashboard.html",
         cliente=cliente,
-        pedidos=pedidos,
+        pedidos=pedidos[:10],
         total_pedidos=total_pedidos,
-        total_aberto=total_aberto
+        total_aberto=total_aberto,
+        qtd_pedidos=qtd_pedidos
     )
 
 
@@ -1319,13 +1280,21 @@ def cliente_pedido():
             db.session.commit()
 
             flash("Pedido enviado com sucesso. Aguarde aprovação do administrador.", "success")
-            return redirect(url_for("cliente_dashboard"))
+            return redirect(url_for("cliente_pedido"))
 
         except Exception as e:
             db.session.rollback()
             return f"Erro ao registrar pedido do cliente: {str(e)}"
 
-    return render_template("cliente_pedido.html", produtos=produtos)
+    pedidos_realizados = (
+        db.session.query(Venda, Produto)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.cliente_id == cliente.id)
+        .order_by(Venda.data.desc())
+        .all()
+    )
+
+    return render_template("cliente_pedido.html", produtos=produtos, pedidos_realizados=pedidos_realizados, cliente=cliente)
 
 
 @app.route("/cliente/historico")
@@ -1336,7 +1305,10 @@ def cliente_historico():
     pedidos = (
         db.session.query(Venda, Produto)
         .join(Produto, Venda.produto_id == Produto.id)
-        .filter(Venda.cliente_id == cliente.id)
+        .filter(
+            Venda.cliente_id == cliente.id,
+            db.or_(Venda.pago == True, Venda.status_pedido.in_(["aprovado", "entregue", "finalizado"]))
+        )
         .order_by(Venda.data.desc())
         .all()
     )
@@ -1352,7 +1324,11 @@ def cliente_itens_em_aberto():
     itens_abertos = (
         db.session.query(Venda, Produto)
         .join(Produto, Venda.produto_id == Produto.id)
-        .filter(Venda.cliente_id == cliente.id, Venda.pago == False)
+        .filter(
+            Venda.cliente_id == cliente.id,
+            Venda.pago == False,
+            Venda.status_pedido != "recusado"
+        )
         .order_by(Venda.data.desc())
         .all()
     )

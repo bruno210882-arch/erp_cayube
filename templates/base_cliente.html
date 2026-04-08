@@ -21,8 +21,9 @@
         .resumo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.resumo-item{background:linear-gradient(180deg,#fff 0,#f8fbff 100%);border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:var(--shadow)}.resumo-item h3{margin:0 0 10px;color:var(--muted);font-size:14px;text-transform:uppercase}.resumo-item p{margin:0;font-size:28px;font-weight:800}
         table{width:100%;border-collapse:separate;border-spacing:0 10px} th{font-size:12px;text-transform:uppercase;color:var(--muted);text-align:left;padding:0 14px 8px} td{background:#fff;padding:14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)} td:first-child{border-left:1px solid var(--line);border-radius:14px 0 0 14px} td:last-child{border-right:1px solid var(--line);border-radius:0 14px 14px 0}
         input,select,textarea{width:100%;padding:13px 14px;border:1px solid #d7dfec;border-radius:14px;font-size:15px}.field{margin-bottom:14px}.field label{display:block;margin-bottom:7px;font-weight:700}.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border:none;border-radius:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,#1d4ed8,#0891b2);cursor:pointer;box-shadow:0 10px 22px rgba(29,78,216,.2)} .btn-secondary{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none}
-        .empty-state{padding:26px;border:1px dashed #cbd5e1;border-radius:18px;background:#f8fbff;color:var(--muted);text-align:center}
+        .empty-state{padding:26px;border:1px dashed #cbd5e1;border-radius:18px;background:#f8fbff;color:var(--muted);text-align:center;overflow:auto}
         .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-weight:700;font-size:12px}.pill.success{background:#ecfdf3;color:#166534}.pill.warning{background:#fff7ed;color:#c2410c}
+        .table-wrap{overflow:auto}
         @media (max-width:760px){.topo{padding-bottom:78px}.menu .install{margin-left:0}.hero h1,.hero h2{font-size:24px}}
     </style>
     {% block extra_head %}{% endblock %}
@@ -34,10 +35,10 @@
             <div class="brand-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Cayube"></div>
             <div>
                 <h2>Área do Cliente</h2>
-                <p>Seu pedido, histórico e pagamentos em um painel simples e bonito.</p>
+                <p>Veja apenas seus pedidos, histórico, pagamentos e pendências.</p>
             </div>
         </div>
-        <span class="pill">Experiência renovada</span>
+        <span class="pill">Acesso individual</span>
     </div>
 </div>
 <div class="shell">
@@ -45,9 +46,9 @@
         <div class="menu">
             <a href="{{ url_for('cliente_dashboard') }}">Início</a>
             <a href="{{ url_for('cliente_estoque') }}">Estoque</a>
-            <a href="{{ url_for('cliente_pedido') }}">Fazer Pedido</a>
+            <a href="{{ url_for('cliente_pedido') }}">Pedidos</a>
             <a href="{{ url_for('cliente_historico') }}">Histórico</a>
-            <a href="{{ url_for('cliente_itens_em_aberto') }}">Itens em Aberto</a>
+            <a href="{{ url_for('cliente_itens_em_aberto') }}">Em Aberto</a>
             <a href="{{ url_for('cliente_pix') }}">Pagar Pedido</a>
             <a href="{{ url_for('cliente_pix_divida') }}">PIX em Aberto</a>
             <a href="{{ url_for('cliente_logout') }}">Sair</a>
