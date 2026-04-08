@@ -1203,29 +1203,31 @@ def cliente_logout():
 
 
 @app.route("/cliente")
-@login_cliente_obrigatorio
 def cliente_dashboard():
+    if "cliente_id" not in session:
+        return redirect(url_for("login_cliente"))
+
     cliente = Cliente.query.get_or_404(session["cliente_id"])
 
-    pedidos = (
-        db.session.query(Venda, Produto)
-        .join(Produto, Venda.produto_id == Produto.id)
-        .filter(Venda.cliente_id == cliente.id)
-        .order_by(Venda.data.desc())
-        .all()
-    )
+    pedidos = Pedido.query.filter_by(cliente_id=cliente.id).order_by(Pedido.id.desc()).all()
+    pedidos_abertos = [
+        p for p in pedidos
+        if (p.status or "").lower() in ["aberto", "pendente", "fiado"]
+    ]
+    historico = [
+        p for p in pedidos
+        if (p.status or "").lower() in ["entregue", "finalizado", "pago", "concluido"]
+    ]
 
-    total_pedidos = sum((venda.total or 0) for venda, _produto in pedidos)
-    total_aberto = sum((venda.total or 0) for venda, _produto in pedidos if not venda.pago and venda.status_pedido != "recusado")
-    qtd_pedidos = len(pedidos)
+    total_aberto = sum(float(p.total or 0) for p in pedidos_abertos)
 
     return render_template(
         "cliente_dashboard.html",
         cliente=cliente,
-        pedidos=pedidos[:10],
-        total_pedidos=total_pedidos,
-        total_aberto=total_aberto,
-        qtd_pedidos=qtd_pedidos
+        pedidos=pedidos,
+        pedidos_abertos=pedidos_abertos,
+        historico=historico,
+        total_aberto=total_aberto
     )
 
 
