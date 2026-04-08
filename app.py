@@ -1202,28 +1202,28 @@ def cliente_logout():
     return redirect(url_for("login_cliente"))
 
 
-@app.route("/cliente")
+@@app.route("/cliente")
+@login_cliente_obrigatorio
 def cliente_dashboard():
-    if "cliente_id" not in session:
-        return redirect(url_for("login_cliente"))
-
     cliente_id = session["cliente_id"]
     cliente = Cliente.query.get_or_404(cliente_id)
 
-    # TODOS os pedidos do cliente
-    pedidos = Pedido.query.filter_by(
-        cliente_id=cliente_id
-    ).order_by(Pedido.id.desc()).all()
+    pedidos = (
+        Venda.query
+        .filter_by(cliente_id=cliente_id)
+        .order_by(Venda.data.desc())
+        .all()
+    )
 
-    # FILTROS
     pedidos_abertos = [
         p for p in pedidos
-        if (p.status or "").lower() in ["aberto", "pendente", "fiado"]
+        if (p.status_pedido or "").lower() in ["aguardando_aprovacao", "aprovado"]
+        and not p.pago
     ]
 
     historico = [
         p for p in pedidos
-        if (p.status or "").lower() in ["entregue", "finalizado", "pago", "concluido"]
+        if p.pago or (p.status_pedido or "").lower() in ["entregue", "finalizado"]
     ]
 
     total_aberto = sum(float(p.total or 0) for p in pedidos_abertos)
