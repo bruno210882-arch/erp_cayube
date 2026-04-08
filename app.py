@@ -1202,7 +1202,7 @@ def cliente_logout():
     return redirect(url_for("login_cliente"))
 
 
-@@app.route("/cliente")
+@app.route("/cliente")
 @login_cliente_obrigatorio
 def cliente_dashboard():
     cliente_id = session["cliente_id"]
