@@ -5,71 +5,54 @@
     <title>{% block titulo %}Área do Cliente{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             font-family: Arial, sans-serif;
             background: #f4f6f9;
-            color: #1b2330;
+            color: #1e1e2f;
         }
         .topo {
             background: #1e1e2f;
             color: white;
-            padding: 20px;
+            padding: 18px 16px;
         }
-        .topo .wrap {
+        .topo-wrap, .menu, .container {
             max-width: 1100px;
             margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-            flex-wrap: wrap;
         }
-        .brand {
+        .topo-wrap {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
-        .brand img {
-            width: 52px;
-            height: 52px;
+        .topo-wrap img {
+            width: 56px;
+            height: 56px;
             object-fit: contain;
             background: white;
-            border-radius: 12px;
             padding: 6px;
+            border-radius: 12px;
         }
-        .brand h2 {
-            margin: 0;
-            font-size: 24px;
-        }
-        .brand p {
-            margin: 4px 0 0;
-            opacity: .9;
-            font-size: 14px;
-        }
+        .topo h2 { margin: 0; font-size: 24px; }
+        .topo p { margin: 4px 0 0; opacity: .9; }
         .menu {
-            max-width: 1100px;
-            margin: 18px auto 0;
             display: flex;
-            gap: 10px;
             flex-wrap: wrap;
+            gap: 10px;
+            padding: 14px 16px;
         }
         .menu a {
             text-decoration: none;
-            color: white;
-            background: #334155;
+            color: #1e1e2f;
+            background: white;
             padding: 10px 14px;
             border-radius: 10px;
             font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,.06);
         }
-        .menu a:hover {
-            background: #475569;
-        }
-        .container {
-            max-width: 1100px;
-            margin: 24px auto;
-            padding: 0 16px;
-        }
+        .menu a:hover { background: #e9eef5; }
+        .container { padding: 8px 16px 24px; }
         .alert {
             padding: 12px 14px;
             border-radius: 10px;
@@ -78,38 +61,103 @@
         .alert-success { background: #d1e7dd; color: #0f5132; }
         .alert-danger { background: #f8d7da; color: #842029; }
         .alert-warning { background: #fff3cd; color: #664d03; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,.08);
+            margin-bottom: 20px;
+        }
+        .card h2, .card h3 { margin-top: 0; }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d7dde5;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            font-size: 15px;
+            background: #fff;
+        }
+        button, .btn {
+            display: inline-block;
+            border: none;
+            background: #1e1e2f;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        button:hover, .btn:hover { background: #34344c; }
+        .btn-success { background: #198754; }
+        .btn-success:hover { background: #146c43; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e7ebf0;
+            text-align: left;
+            vertical-align: top;
+        }
+        th { background: #f8fafc; }
+        .text-right { text-align: right; }
+        .badge {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        .muted { color: #667085; }
+        @media (max-width: 768px) {
+            .topo-wrap { align-items: flex-start; }
+            table { font-size: 14px; }
+            th, td { padding: 10px 8px; }
+        }
     </style>
 </head>
 <body>
     <div class="topo">
-        <div class="wrap">
-            <div class="brand">
-                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
-                <div>
-                    <h2>Área do Cliente</h2>
-                    <p>Pedidos, histórico, PIX e pendências</p>
-                </div>
+        <div class="topo-wrap">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+            <div>
+                <h2>Área do Cliente</h2>
+                <p>Pedidos, histórico e pagamentos</p>
             </div>
         </div>
+    </div>
 
-        <div class="menu">
-            <a href="{{ url_for('cliente_dashboard') }}">Início</a>
-            <a href="{{ url_for('cliente_estoque') }}">Estoque</a>
-            <a href="{{ url_for('cliente_pedido') }}">Pedidos</a>
-            <a href="{{ url_for('cliente_historico') }}">Histórico</a>
-            <a href="{{ url_for('cliente_itens_em_aberto') }}">Em aberto</a>
-            <a href="{{ url_for('cliente_pix_divida') }}">PIX</a>
-            <a href="{{ url_for('cliente_logout') }}">Sair</a>
-        </div>
+    <div class="menu">
+        <a href="{{ url_for('cliente_dashboard') }}">Início</a>
+        <a href="{{ url_for('cliente_estoque') }}">Estoque</a>
+        <a href="{{ url_for('cliente_pedido') }}">Fazer Pedido</a>
+        <a href="{{ url_for('cliente_historico') }}">Histórico</a>
+        <a href="{{ url_for('cliente_itens_em_aberto') }}">Itens em Aberto</a>
+        <a href="{{ url_for('cliente_pix_divida') }}">PIX em Aberto</a>
+        <a href="{{ url_for('cliente_logout') }}">Sair</a>
     </div>
 
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for categoria, mensagem in messages %}
-                    <div class="alert alert-{{ categoria }}">
-                        {{ mensagem }}
-                    </div>
+                    <div class="alert alert-{{ categoria }}">{{ mensagem }}</div>
                 {% endfor %}
             {% endif %}
         {% endwith %}

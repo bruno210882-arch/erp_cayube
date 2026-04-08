@@ -1,47 +1,48 @@
 {% extends "base_cliente.html" %}
+{% block titulo %}Fazer Pedido{% endblock %}
 {% block conteudo %}
-<div class="hero">
-    <div>
-        <h2>Novo Pedido</h2>
-        <p>Faça um novo pedido e acompanhe logo abaixo somente os pedidos desse login.</p>
-    </div>
-    <span class="pill">Pedido online</span>
-</div>
 <div class="card">
+    <h2>Novo Pedido</h2>
     <form method="POST">
-        <div class="field">
-            <label>Produto</label>
-            <select name="produto" required>
-                {% for produto in produtos %}
-                <option value="{{ produto.id }}">{{ produto.nome }} - R$ {{ "%.2f"|format(produto.preco) }} - Estoque: {{ produto.estoque }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="field">
-            <label>Quantidade</label>
-            <input type="number" name="quantidade" min="1" required>
-        </div>
-        <button type="submit" class="btn">Enviar Pedido</button>
+        <label>Produto</label>
+        <select name="produto" required>
+            {% for produto in produtos %}
+            <option value="{{ produto.id }}">{{ produto.nome }} - R$ {{ "%.2f"|format(produto.preco or 0) }} - Estoque: {{ produto.estoque or 0 }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Quantidade</label>
+        <input type="number" name="quantidade" min="1" required>
+
+        <button type="submit">Enviar Pedido</button>
     </form>
 </div>
+
 <div class="card">
-    <h3>Pedidos realizados por {{ cliente.nome }}</h3>
-    {% if pedidos_realizados %}
-    <div class="table-wrap">
+    <h2>Pedidos Realizados</h2>
     <table>
-        <tr><th>ID</th><th>Produto</th><th>Quantidade</th><th>Total</th><th>Status Pedido</th><th>Status PIX</th><th>Data</th></tr>
+        <tr>
+            <th>ID</th>
+            <th>Produto</th>
+            <th>Quantidade</th>
+            <th>Total</th>
+            <th>Status Pedido</th>
+            <th>Status PIX</th>
+            <th>Data</th>
+        </tr>
         {% for venda, produto in pedidos_realizados %}
         <tr>
-            <td>{{ venda.id }}</td><td>{{ produto.nome }}</td><td>{{ venda.quantidade }}</td><td>R$ {{ "%.2f"|format(venda.total or 0) }}</td>
-            <td>{% if venda.status_pedido == 'aprovado' %}<span class="pill success">Aprovado</span>{% elif venda.status_pedido == 'aguardando_aprovacao' %}<span class="pill warning">Aguardando</span>{% else %}<span class="pill">{{ venda.status_pedido }}</span>{% endif %}</td>
-            <td>{% if venda.status_pix == 'pago' %}<span class="pill success">Pago</span>{% else %}<span class="pill">{{ venda.status_pix }}</span>{% endif %}</td>
-            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') if venda.data else '' }}</td>
+            <td>#{{ venda.id }}</td>
+            <td>{{ produto.nome }}</td>
+            <td>{{ venda.quantidade }}</td>
+            <td>R$ {{ "%.2f"|format(venda.total or 0) }}</td>
+            <td>{{ venda.status_pedido or '-' }}</td>
+            <td>{{ venda.status_pix or '-' }}</td>
+            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') if venda.data else '-' }}</td>
         </tr>
+        {% else %}
+        <tr><td colspan="7">Nenhum pedido realizado.</td></tr>
         {% endfor %}
     </table>
-    </div>
-    {% else %}
-    <div class="empty-state">Este cliente ainda não realizou pedidos.</div>
-    {% endif %}
 </div>
 {% endblock %}
