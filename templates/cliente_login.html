@@ -5,7 +5,7 @@
     <title>Área do Cliente</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link rel="manifest" href="{{ url_for('manifest_cliente') }}">
+    <link rel="manifest" href="{{ url_for('manifest_cliente') }}?v={{ config.get('APP_VERSION', '') }}">
     <meta name="theme-color" content="#1e1e2f">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/cliente-erp-192.png') }}">
 
@@ -178,7 +178,11 @@
         });
 
         if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("/cliente-sw.js", { scope: "/cliente/" });
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register("/cliente-sw.js?v={{ config.get('APP_VERSION', '') }}")
+                    .then(reg => reg.update())
+                    .catch(err => console.log("SW Cliente erro:", err));
+            });
         }
 
         let deferredPrompt = null;

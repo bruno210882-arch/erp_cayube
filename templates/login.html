@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Login ERP</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/manifest-erp.webmanifest">
+    <link rel="manifest" href="{{ url_for('manifest_erp') }}?v={{ config.get('APP_VERSION', '') }}">
     <meta name="theme-color" content="#121936">
     <link rel="apple-touch-icon" href="/static/icons/erp-192.png">
     <style>
@@ -41,7 +41,13 @@
     </div>
 </div>
 <script>
-if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/service-worker.js"); }
+if ("serviceWorker" in navigator) {
+window.addEventListener("load", function () {
+  navigator.serviceWorker.register("/service-worker.js?v={{ config.get('APP_VERSION', '') }}")
+    .then(reg => reg.update())
+    .catch(err => console.log("SW ERP erro:", err));
+});
+}
 let deferredPrompt; const btnInstalar = document.getElementById("btnInstalar");
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; btnInstalar.style.display = "block"; });
 btnInstalar.addEventListener("click", async () => { if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; btnInstalar.style.display = "none"; } });

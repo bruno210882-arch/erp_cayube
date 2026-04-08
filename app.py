@@ -18,6 +18,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = "cayube_erp_chave_secreta_2026"
 
+APP_VERSION = os.getenv("APP_VERSION", datetime.now().strftime("%Y%m%d%H%M%S"))
+app.config["APP_VERSION"] = APP_VERSION
+
 PIX_CHAVE = "35548112899"
 PIX_NOME = "BRUNA RAFAELA SOARES SILVA"
 PIX_CIDADE = "CAIEIRAS"
@@ -214,13 +217,13 @@ def gerar_qrcode_base64(texto):
 
 @app.route("/manifest-erp.webmanifest")
 def manifest_erp():
-    return jsonify({
-        "id": "/admin",
+    response = jsonify({
+        "id": f"/login?v={APP_VERSION}",
         "name": "Cayube ERP Gerencial",
         "short_name": "ERP Cayube",
-        "description": "ERP gerencial instalável",
-        "start_url": "/login",
-        "scope": "/login",
+        "description": f"ERP gerencial instalável - v{APP_VERSION}",
+        "start_url": f"/login?v={APP_VERSION}",
+        "scope": "/",
         "display": "standalone",
         "background_color": "#f4f6f9",
         "theme_color": "#1e1e2f",
@@ -230,16 +233,18 @@ def manifest_erp():
             {"src": "/static/icons/erp-512.png", "sizes": "512x512", "type": "image/png"}
         ]
     })
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
 
 
 @app.route("/manifest-cliente.webmanifest")
 def manifest_cliente():
-    return jsonify({
-        "id": "/cliente/login",
+    response = jsonify({
+        "id": f"/cliente/login?v={APP_VERSION}",
         "name": "Cayube Área do Cliente",
         "short_name": "Cliente Cayube",
-        "description": "Portal do cliente instalável",
-        "start_url": "/cliente/login",
+        "description": f"Portal do cliente instalável - v{APP_VERSION}",
+        "start_url": f"/cliente/login?v={APP_VERSION}",
         "scope": "/cliente",
         "display": "standalone",
         "background_color": "#f4f6f9",
@@ -250,80 +255,118 @@ def manifest_cliente():
             {"src": "/static/icons/cliente-erp-512.png", "sizes": "512x512", "type": "image/png"}
         ]
     })
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
 
 
 @app.route("/service-worker.js")
 def service_worker():
-    js = """
-const CACHE_NAME = "cayube-pwa-v1";
-const URLS_TO_CACHE = ["/login", "/static/logo.png"];
+    js = f"""
+const CACHE_NAME = "cayube-erp-{APP_VERSION}";
+const APP_VERSION = "{APP_VERSION}";
+const URLS_TO_CACHE = [
+  "/login?v={APP_VERSION}",
+  "/manifest-erp.webmanifest?v={APP_VERSION}",
+  "/static/logo.png"
+];
 
-self.addEventListener("install", event => {
+self.addEventListener("install", event => {{
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE)).catch(() => null)
   );
   self.skipWaiting();
-});
+}});
 
-self.addEventListener("activate", event => {
+self.addEventListener("activate", event => {{
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.map(key => {
-        if (key !== CACHE_NAME) return caches.delete(key);
-      }))
-    )
+      Promise.all(
+        keys.map(key => {{
+          if (key !== CACHE_NAME) {{
+            return caches.delete(key);
+          }}
+        }})
+      )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
-});
+}});
 
-self.addEventListener("fetch", event => {
+self.addEventListener("fetch", event => {{
   if (event.request.method !== "GET") return;
 
+  const url = new URL(event.request.url);
+
+  if (url.pathname === "/login" || url.pathname === "/manifest-erp.webmanifest") {{
+    event.respondWith(
+      fetch(event.request, {{ cache: "no-store" }})
+        .catch(() => caches.match("/login?v={APP_VERSION}"))
+    );
+    return;
+  }}
+
   event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request).catch(() => caches.match("/login"));
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
-});
+}});
 """
-    return app.response_class(js, mimetype="application/javascript")
+    response = app.response_class(js, mimetype="application/javascript")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
 
 
 @app.route("/cliente-sw.js")
 def cliente_service_worker():
-    js = """
-const CACHE_NAME = "cayube-cliente-v1";
-const URLS_TO_CACHE = ["/cliente/login", "/cliente", "/static/logo.png"];
+    js = f"""
+const CACHE_NAME = "cayube-cliente-{APP_VERSION}";
+const APP_VERSION = "{APP_VERSION}";
+const URLS_TO_CACHE = [
+  "/cliente/login?v={APP_VERSION}",
+  "/manifest-cliente.webmanifest?v={APP_VERSION}",
+  "/static/logo.png"
+];
 
-self.addEventListener("install", event => {
+self.addEventListener("install", event => {{
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE)).catch(() => null)
   );
   self.skipWaiting();
-});
+}});
 
-self.addEventListener("activate", event => {
+self.addEventListener("activate", event => {{
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.map(key => {
-        if (key !== CACHE_NAME) return caches.delete(key);
-      }))
-    )
+      Promise.all(
+        keys.map(key => {{
+          if (key !== CACHE_NAME) {{
+            return caches.delete(key);
+          }}
+        }})
+      )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
-});
+}});
 
-self.addEventListener("fetch", event => {
+self.addEventListener("fetch", event => {{
   if (event.request.method !== "GET") return;
 
+  const url = new URL(event.request.url);
+
+  if (url.pathname === "/cliente/login" || url.pathname === "/manifest-cliente.webmanifest") {{
+    event.respondWith(
+      fetch(event.request, {{ cache: "no-store" }})
+        .catch(() => caches.match("/cliente/login?v={APP_VERSION}"))
+    );
+    return;
+  }}
+
   event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request).catch(() => caches.match("/cliente/login"));
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
-});
+}});
 """
-    return app.response_class(js, mimetype="application/javascript")
+    response = app.response_class(js, mimetype="application/javascript")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
 
 
 @app.route("/criar_tabelas")
@@ -1425,11 +1468,13 @@ def pedidos_clientes():
     return render_template("pedidos_clientes.html", pedidos=pedidos)
 
 
-@app.route("/aprovar_pedido/<int:venda_id>")
+@app.route("/aprovar_pedido/<int:venda_id>", methods=["GET", "POST"])
 @login_obrigatorio
 def aprovar_pedido(venda_id):
     venda = Venda.query.get_or_404(venda_id)
     produto = Produto.query.get(venda.produto_id)
+    cliente = Cliente.query.get(venda.cliente_id)
+    saldo = get_saldo()
 
     if venda.status_pedido != "aguardando_aprovacao":
         flash("Esse pedido já foi analisado.", "warning")
@@ -1439,11 +1484,60 @@ def aprovar_pedido(venda_id):
         flash("Estoque insuficiente para aprovar o pedido.", "danger")
         return redirect(url_for("pedidos_clientes"))
 
-    venda.status_pedido = "aprovado"
-    db.session.commit()
+    if request.method == "POST":
+        forma = (request.form.get("forma_pagamento") or "").strip().lower()
+        formas_validas = {"dinheiro", "pix", "fiado"}
 
-    flash("Pedido aprovado com sucesso.", "success")
-    return redirect(url_for("pedidos_clientes"))
+        if forma not in formas_validas:
+            flash("Selecione uma forma de pagamento válida.", "danger")
+            return render_template("aprovar_pedido.html", venda=venda, cliente=cliente, produto=produto)
+
+        venda.status_pedido = "aprovado"
+        venda.forma_pagamento = forma
+
+        if forma == "dinheiro":
+            venda.pago = True
+            venda.status_pix = "pago"
+            produto.estoque -= venda.quantidade
+            saldo.dinheiro += venda.total
+
+            db.session.add(MovimentoEstoque(
+                produto_id=produto.id,
+                tipo="saida",
+                quantidade=venda.quantidade,
+                motivo="Pedido cliente aprovado com pagamento em dinheiro"
+            ))
+
+            db.session.commit()
+            flash("Pedido aprovado com pagamento em dinheiro.", "success")
+            return redirect(url_for("pedidos_clientes"))
+
+        if forma == "fiado":
+            venda.pago = False
+            venda.status_pix = "pendente"
+            produto.estoque -= venda.quantidade
+
+            if cliente:
+                cliente.divida = (cliente.divida or 0) + venda.total
+
+            db.session.add(MovimentoEstoque(
+                produto_id=produto.id,
+                tipo="saida",
+                quantidade=venda.quantidade,
+                motivo="Pedido cliente aprovado no fiado"
+            ))
+
+            db.session.commit()
+            flash("Pedido aprovado no fiado com sucesso.", "success")
+            return redirect(url_for("pedidos_clientes"))
+
+        venda.pago = False
+        venda.status_pix = "pendente"
+        db.session.commit()
+        flash("Pedido aprovado via PIX. Agora basta confirmar o recebimento quando o pagamento entrar.", "success")
+        return redirect(url_for("pedidos_clientes"))
+
+    return render_template("aprovar_pedido.html", venda=venda, cliente=cliente, produto=produto)
 
 
 @app.route("/recusar_pedido/<int:venda_id>")
