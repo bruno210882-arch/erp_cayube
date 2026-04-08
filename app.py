@@ -1603,9 +1603,29 @@ def confirmar_pix(venda_id):
 @app.route("/resetar_banco")
 @login_obrigatorio
 def resetar_banco():
-    db.drop_all()
-    db.create_all()
-    return "Banco resetado com sucesso!"
+    if session.get("usuario_nivel") != "admin":
+        return "Acesso negado", 403
+
+    try:
+        db.drop_all()
+        db.create_all()
+
+        admin = Usuario(
+            nome="Administrador",
+            usuario="admin",
+            senha=generate_password_hash("123456"),
+            nivel="admin"
+        )
+
+        db.session.add(admin)
+        db.session.commit()
+
+        session.clear()
+        return "Banco resetado com sucesso! Novo acesso: usuario admin | senha 123456"
+
+    except Exception as e:
+        db.session.rollback()
+        return f"Erro ao resetar banco: {str(e)}"
 
 
 @app.route("/notificacoes")
