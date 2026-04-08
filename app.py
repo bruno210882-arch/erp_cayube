@@ -1207,13 +1207,20 @@ def cliente_dashboard():
     if "cliente_id" not in session:
         return redirect(url_for("login_cliente"))
 
-    cliente = Cliente.query.get_or_404(session["cliente_id"])
+    cliente_id = session["cliente_id"]
+    cliente = Cliente.query.get_or_404(cliente_id)
 
-    pedidos = Pedido.query.filter_by(cliente_id=cliente.id).order_by(Pedido.id.desc()).all()
+    # TODOS os pedidos do cliente
+    pedidos = Pedido.query.filter_by(
+        cliente_id=cliente_id
+    ).order_by(Pedido.id.desc()).all()
+
+    # FILTROS
     pedidos_abertos = [
         p for p in pedidos
         if (p.status or "").lower() in ["aberto", "pendente", "fiado"]
     ]
+
     historico = [
         p for p in pedidos
         if (p.status or "").lower() in ["entregue", "finalizado", "pago", "concluido"]
@@ -1229,7 +1236,6 @@ def cliente_dashboard():
         historico=historico,
         total_aberto=total_aberto
     )
-
 
 @app.route("/cliente/estoque")
 @login_cliente_obrigatorio
