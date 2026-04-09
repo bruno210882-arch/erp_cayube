@@ -34,6 +34,12 @@
         <th>Receber</th>
     </tr>
     {% for venda, cliente, produto in vendas_fiado %}
+<td>
+    <a href="{{ url_for('excluir_venda', venda_id=venda.id) }}"
+       onclick="return confirm('Tem certeza que deseja excluir esta venda?');">
+       ❌ Excluir
+    </a>
+</td>
     <tr>
         <td>{{ cliente.nome }}</td>
         <td>{{ produto.nome }}</td>

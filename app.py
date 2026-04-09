@@ -1018,6 +1018,54 @@ def baixa_estoque():
 
     return render_template("baixa_estoque.html", produtos=produtos, movimentos=movimentos)
 
+@app.route("/excluir_venda/<int:venda_id>")
+@login_obrigatorio
+def excluir_venda(venda_id):
+    venda = Venda.query.get_or_404(venda_id)
+    produto = Produto.query.get(venda.produto_id)
+    cliente = Cliente.query.get(venda.cliente_id)
+    saldo = get_saldo()
+
+    try:
+        # devolve estoque se existir produto
+        if produto:
+            produto.estoque = (produto.estoque or 0) + (venda.quantidade or 0)
+
+            db.session.add(MovimentoEstoque(
+                produto_id=produto.id,
+                tipo="entrada",
+                quantidade=venda.quantidade or 0,
+                motivo=f"Estorno de venda #{venda.id}"
+            ))
+
+        # desfaz financeiro
+        if venda.pago:
+            if (venda.forma_pagamento or "").lower() == "dinheiro":
+                saldo.dinheiro = (saldo.dinheiro or 0) - (venda.total or 0)
+            else:
+                saldo.conta = (saldo.conta or 0) - (venda.total or 0)
+
+            db.session.add(Movimento(
+                tipo="saida",
+                valor=venda.total or 0,
+                origem="dinheiro" if (venda.forma_pagamento or "").lower() == "dinheiro" else "conta",
+                descricao=f"Estorno da venda #{venda.id}"
+            ))
+
+        # desfaz dívida do cliente, se for fiado e ainda não pago
+        elif cliente and (venda.forma_pagamento or "").lower() == "fiado":
+            cliente.divida = max((cliente.divida or 0) - (venda.total or 0), 0)
+
+        db.session.delete(venda)
+        db.session.commit()
+        flash("Venda excluída com sucesso.", "success")
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Erro ao excluir venda: {str(e)}", "danger")
+
+    return redirect(url_for("index"))
+
 @app.route("/relatorio_financeiro")
 @login_obrigatorio
 def relatorio_financeiro():
