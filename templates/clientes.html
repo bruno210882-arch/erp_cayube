@@ -12,7 +12,7 @@
     <form method="POST" action="{{ url_for('add_cliente') }}">
         <div class="form-grid">
             <div class="field"><label for="nome">Nome</label><input type="text" id="nome" name="nome" placeholder="Nome do cliente" required></div>
-            <div class="field"><label for="telefone">Telefone</label><input type="text" id="telefone" name="telefone" placeholder="(19) 99999-9999" maxlength="15"></div>
+            <div class="field"><label for="telefone">Telefone <span style="color:#667085;font-weight:normal;">(opcional)</span></label><input type="text" id="telefone" name="telefone" placeholder="(19) 99999-9999" maxlength="15"></div>
             <div class="field"><label for="local">Local</label><input type="text" id="local" name="local" placeholder="Cidade / Bairro / Região"></div>
         </div>
         <button type="submit">Cadastrar Cliente</button>

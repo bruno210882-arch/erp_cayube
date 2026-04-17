@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+<h2>Venda Rápida</h2>
+
+<div class="grid-2">
+    <div class="card">
+        <h3>Adicionar item</h3>
+        <form method="POST">
+            <input type="hidden" name="acao" value="adicionar">
+
+            <label>Buscar produto</label>
+            <input type="text" id="busca-produto" placeholder="Digite o nome do produto para filtrar">
+
+            <label>Produto</label>
+            <select name="produto_id" id="produto-select" required>
+                {% for p in produtos %}
+                <option value="{{ p.id }}">{{ p.nome }} - R$ {{ '%.2f'|format(p.preco or 0) }} (Estoque: {{ p.estoque or 0 }})</option>
+                {% endfor %}
+            </select>
+
+            <label>Quantidade</label>
+            <input type="number" name="quantidade" min="1" value="1" required>
+
+            <button type="submit">Adicionar ao carrinho</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Finalizar venda</h3>
+        <form method="POST">
+            <input type="hidden" name="acao" value="finalizar">
+
+            <label>Buscar cliente</label>
+            <input type="text" id="busca-cliente" placeholder="Digite o nome do cliente para filtrar">
+
+            <label>Cliente</label>
+            <select name="cliente_id" id="cliente-select" required>
+                {% for c in clientes %}
+                <option value="{{ c.id }}">{{ c.nome }}{% if c.local %} - {{ c.local }}{% endif %}</option>
+                {% endfor %}
+            </select>
+
+            <label>Forma de pagamento</label>
+            <select name="forma_pagamento" required>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">PIX</option>
+                <option value="fiado">Fiado</option>
+            </select>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="submit" class="btn verde">Finalizar venda</button>
+                <a href="{{ url_for('limpar_venda_rapida') }}" class="btn vermelho">Limpar carrinho</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+        <h3 style="margin:0;">Carrinho da venda</h3>
+        <div style="font-size:22px;font-weight:bold;">Total: R$ {{ '%.2f'|format(total or 0) }}</div>
+    </div>
+
+    {% if carrinho %}
+    <table style="margin-top:16px;">
+        <tr>
+            <th>Produto</th>
+            <th>Quantidade</th>
+            <th>Preço</th>
+            <th>Total</th>
+            <th>Ação</th>
+        </tr>
+        {% for item in carrinho %}
+        <tr>
+            <td>{{ item.nome }}</td>
+            <td>{{ item.quantidade }}</td>
+            <td>R$ {{ '%.2f'|format(item.preco or 0) }}</td>
+            <td>R$ {{ '%.2f'|format((item.preco or 0) * (item.quantidade or 0)) }}</td>
+            <td><a class="btn vermelho" href="{{ url_for('remover_item_venda_rapida', indice=loop.index0) }}">Remover</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p style="margin-top:16px;">Nenhum item adicionado ainda.</p>
+    {% endif %}
+</div>
+
+<script>
+function filtrarSelect(inputId, selectId) {
+    const input = document.getElementById(inputId);
+    const select = document.getElementById(selectId);
+    if (!input || !select) return;
+    const original = Array.from(select.options).map(o => ({value:o.value, text:o.text}));
+    input.addEventListener('input', function() {
+        const termo = this.value.toLowerCase();
+        select.innerHTML = '';
+        original.filter(o => o.text.toLowerCase().includes(termo)).forEach(o => {
+            const option = document.createElement('option');
+            option.value = o.value; option.text = o.text; select.appendChild(option);
+        });
+    });
+}
+filtrarSelect('busca-produto', 'produto-select');
+filtrarSelect('busca-cliente', 'cliente-select');
+</script>
+{% endblock %}
