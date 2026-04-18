@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 {% block conteudo %}
 
-<h2>Dashboard</h2>
+<div class="hero">
+    <div>
+        <h2>Dashboard</h2>
+        <p>Menu superior removido nesta tela. Use os setores abaixo para navegar pelas áreas do sistema.</p>
+    </div>
+    <div class="hero-badge">Navegação setorizada ativa</div>
+</div>
 
 <!-- ===================== -->
 <!-- 📊 INDICADORES -->
@@ -79,6 +85,7 @@
 <!-- ⚡ SETORES -->
 <!-- ===================== -->
 
+<h3>🚀 Menu Setorizado</h3>
 <div class="setor" onclick="toggle('operacoes')">📦 Operações</div>
 <div id="operacoes" class="conteudo">
     <a href="/venda_rapida">Venda Rápida</a>

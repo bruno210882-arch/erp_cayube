@@ -61,6 +61,7 @@
         </div>
     </header>
     <div class="shell">
+        {% if request.endpoint != 'index' %}
         <div class="menu-card">
             <nav class="menu">
                 <a href="{{ url_for('index') }}">Dashboard</a>
@@ -81,14 +82,15 @@
                 <a href="{{ url_for('backup') }}">Backup</a>
                 <a href="{{ url_for('notificacoes') }}">Notificações</a>
                 <a href="{{ url_for('baixa_estoque') }}">Baixa sem Venda</a>
-                <a href="/painel_financeiro">Financeiro</a>
-		<a href="/ranking_clientes">Ranking</a>
-		<a href="/relatorio_fiado_cliente">Fiado Cliente</a>
-		<a href="/relatorio_fiado_local">Fiado Local</a>
-		<a href="/venda_rapida">Venda Rápida</a>
-		<a href="/entrada_rapida">Entrada Rápida</a>
+                <a href="{{ url_for('painel_financeiro') }}">Painel Financeiro</a>
+                <a href="{{ url_for('ranking_clientes') }}">Ranking</a>
+                <a href="{{ url_for('relatorio_fiado_cliente') }}">Fiado Cliente</a>
+                <a href="{{ url_for('relatorio_fiado_local') }}">Fiado Local</a>
+                <a href="{{ url_for('venda_rapida') }}">Venda Rápida</a>
+                <a href="{{ url_for('entrada_rapida') }}">Entrada Rápida</a>
             </nav>
         </div>
+        {% endif %}
         <main class="page">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
