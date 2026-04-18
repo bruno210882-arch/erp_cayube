@@ -1414,43 +1414,62 @@ def venda_rapida():
 @app.route("/entrada_rapida", methods=["GET", "POST"])
 @login_obrigatorio
 def entrada_rapida():
-    produtos = Produto.query.all()
+    produtos = Produto.query.order_by(Produto.nome.asc()).all()
+    saldo = get_saldo()
 
     if request.method == "POST":
-        tipo = request.form.get("tipo")
+        produto_id = request.form.get("produto_id")
+        quantidade = int(request.form.get("quantidade", 0) or 0)
+        valor_compra = float(request.form.get("valor_compra", 0) or 0)
+        origem = (request.form.get("origem") or "").strip().lower()
 
-        # 🔹 PRODUTO NORMAL
-        if tipo == "produto":
-            produto_id = int(request.form.get("produto_id"))
-            quantidade = int(request.form.get("quantidade"))
-            valor = float(request.form.get("valor"))
+        if not produto_id or quantidade <= 0 or valor_compra < 0:
+            flash("Preencha os dados da entrada corretamente.", "warning")
+            return redirect(url_for("entrada_rapida"))
 
-            produto = Produto.query.get(produto_id)
-            saldo = get_saldo()
+        produto = Produto.query.get_or_404(int(produto_id))
 
-            if produto:
-                produto.estoque += quantidade
-                saldo.conta -= valor
+        produto.estoque = (produto.estoque or 0) + quantidade
 
-                db.session.add(MovimentoEstoque(
-                    produto_id=produto.id,
-                    tipo="entrada",
-                    quantidade=quantidade,
-                    motivo="Entrada rápida"
-                ))
+        if origem == "dinheiro":
+            saldo.dinheiro -= valor_compra
+        elif origem == "conta":
+            saldo.conta -= valor_compra
+        elif origem == "capital_dinheiro":
+            saldo.dinheiro += valor_compra
+        elif origem == "capital_conta":
+            saldo.conta += valor_compra
 
-        # 🔹 ENTRADA DIVERSA
-        elif tipo == "diverso":
-            valor = float(request.form.get("valor_diverso"))
-            saldo = get_saldo()
+        movimento_estoque = MovimentoEstoque(
+            produto_id=produto.id,
+            tipo="entrada",
+            quantidade=quantidade,
+            motivo="Entrada rápida"
+        )
+        db.session.add(movimento_estoque)
 
-            saldo.conta -= valor
+        movimento_financeiro = Movimento(
+            tipo="entrada" if origem.startswith("capital_") else "saida",
+            valor=valor_compra,
+            origem="dinheiro" if origem in ["dinheiro", "capital_dinheiro"] else "conta",
+            descricao=f"Entrada rápida de estoque - {produto.nome}"
+        )
+        db.session.add(movimento_financeiro)
 
         db.session.commit()
         flash("Entrada registrada com sucesso!", "success")
         return redirect(url_for("entrada_rapida"))
 
-    return render_template("entrada_rapida.html", produtos=produtos)
+    movimentos = MovimentoEstoque.query.filter_by(tipo="entrada")\
+        .order_by(MovimentoEstoque.data.desc())\
+        .limit(20).all()
+
+    return render_template(
+        "entrada_rapida.html",
+        produtos=produtos,
+        saldo=saldo,
+        movimentos=movimentos
+    )
 
 @app.route("/cliente")
 @login_cliente_obrigatorio
