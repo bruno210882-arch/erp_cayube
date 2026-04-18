@@ -223,6 +223,45 @@ def gerar_qrcode_base64(texto):
     buffer.seek(0)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
+@app.route("/corrigir_banco_vendas")
+def corrigir_banco_vendas():
+    if "usuario_id" not in session:
+        return redirect(url_for("login"))
+
+    vendas = Venda.query.all()
+    corrigidos = 0
+
+    for v in vendas:
+        alterou = False
+
+        # Garante que o campo exista em objetos antigos
+        status_atual = (getattr(v, "status_pedido", "") or "").strip().lower()
+
+        # 1) Pedidos feitos pelo cliente:
+        # normalmente têm cliente_id preenchido e ficam pendentes/aprovados
+        # se já estiver marcado como pedido, mantém
+        if status_atual in ["aguardando_aprovacao", "pedido_cliente", "pedido", "aguardando"]:
+            if v.status_pedido != "aguardando_aprovacao":
+                v.status_pedido = "aguardando_aprovacao"
+                alterou = True
+
+        # 2) Se já foi aprovado como pedido do cliente, mantém como aprovado
+        elif status_atual == "aprovado":
+            # mantém aprovado
+            pass
+
+        # 3) Vendas diretas do ERP:
+        # tudo que não for pedido do cliente fica como venda direta
+        else:
+            if v.status_pedido != "venda_direta":
+                v.status_pedido = "venda_direta"
+                alterou = True
+
+        if alterou:
+            corrigidos += 1
+
+    db.session.commit()
+    return f"Correção concluída com sucesso. {corrigidos} registro(s) ajustado(s)."
 
 @app.route("/manifest-erp.webmanifest")
 def manifest_erp():
