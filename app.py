@@ -6,6 +6,8 @@ from datetime import datetime, date
 from functools import wraps
 from collections import defaultdict
 from sqlalchemy import func, desc
+from flask import session, request, redirect, render_template, flash, url_for
+from sqlalchemy import func
 
 import qrcode
 from flask import (
@@ -454,35 +456,55 @@ def logout():
     return redirect(url_for("login"))
 
 
+from datetime import date
+from sqlalchemy import func
+
 @app.route("/")
 @login_obrigatorio
 def index():
+    hoje = date.today()
+
+    vendas_hoje = db.session.query(func.sum(Venda.total)).filter(
+        func.date(Venda.data) == hoje
+    ).scalar() or 0
+
+    total_vendas = db.session.query(func.sum(Venda.total)).scalar() or 0
+
+    total_fiado = db.session.query(func.sum(Venda.total)).filter(
+        Venda.pago == False
+    ).scalar() or 0
+
     saldo = get_saldo()
-    vendas = Venda.query.all()
-    produtos = Produto.query.all()
+    caixa_total = (saldo.dinheiro or 0) + (saldo.conta or 0)
 
-    total_vendas = sum(v.total for v in vendas if v.pago)
-    total_fiado = sum(v.total for v in vendas if not v.pago and v.forma_pagamento == "fiado")
-    total_estoque = sum((p.estoque or 0) for p in produtos)
+    # top devedores
+    top_devedores = db.session.query(
+        Cliente.nome,
+        func.sum(Venda.total)
+    ).join(Venda).filter(
+        Venda.pago == False
+    ).group_by(Cliente.nome).order_by(
+        func.sum(Venda.total).desc()
+    ).limit(5).all()
 
-    lucro_total = 0
-    for v in vendas:
-        produto = Produto.query.get(v.produto_id)
-        if produto:
-            lucro_total += v.total - ((produto.custo or 0) * v.quantidade)
+    # dívidas antigas
+    antigos = Venda.query.filter(
+        Venda.pago == False
+    ).order_by(Venda.data.asc()).limit(5).all()
 
-    produtos_baixo_estoque = Produto.query.filter(Produto.estoque <= 5).all()
+    # estoque baixo
+    estoque_baixo = Produto.query.filter(Produto.estoque < 5).all()
 
     return render_template(
         "index.html",
-        saldo=saldo,
+        vendas_hoje=vendas_hoje,
         total_vendas=total_vendas,
         total_fiado=total_fiado,
-        total_estoque=total_estoque,
-        lucro_total=lucro_total,
-        produtos_baixo_estoque=produtos_baixo_estoque
+        caixa_total=caixa_total,
+        top_devedores=top_devedores,
+        antigos=antigos,
+        estoque_baixo=estoque_baixo
     )
-
 
 @app.route("/clientes")
 @login_obrigatorio
@@ -1204,6 +1226,162 @@ def cliente_logout():
     flash("Você saiu da área do cliente.", "success")
     return redirect(url_for("login_cliente"))
 
+@app.route("/venda_rapida", methods=["GET", "POST"])
+@login_obrigatorio
+def venda_rapida():
+    clientes = Cliente.query.all()
+    produtos = Produto.query.filter(Produto.estoque > 0).all()
+
+    if "carrinho" not in session:
+        session["carrinho"] = []
+
+    if request.method == "POST":
+        acao = request.form.get("acao")
+
+        # 🔹 ADICIONAR PRODUTO
+        if acao == "add_produto":
+            produto_id = int(request.form.get("produto_id"))
+            quantidade = int(request.form.get("quantidade", 1))
+
+            produto = Produto.query.get(produto_id)
+
+            if produto and produto.estoque >= quantidade:
+                item = {
+                    "produto_id": produto.id,
+                    "nome": produto.nome,
+                    "quantidade": quantidade,
+                    "preco": float(produto.preco)
+                }
+                session["carrinho"].append(item)
+                session.modified = True
+            else:
+                flash("Estoque insuficiente.", "danger")
+
+        # 🔹 ITEM DIVERSO
+        elif acao == "add_diverso":
+            nome = request.form.get("nome_diverso")
+            valor = float(request.form.get("valor_diverso"))
+
+            item = {
+                "produto_id": None,
+                "nome": nome,
+                "quantidade": 1,
+                "preco": valor
+            }
+
+            session["carrinho"].append(item)
+            session.modified = True
+
+        # 🔹 REMOVER ITEM
+        elif acao == "remover":
+            indice = int(request.form.get("indice"))
+            if 0 <= indice < len(session["carrinho"]):
+                session["carrinho"].pop(indice)
+                session.modified = True
+
+        # 🔹 LIMPAR CARRINHO
+        elif acao == "limpar":
+            session["carrinho"] = []
+            session.modified = True
+
+        # 🔹 FINALIZAR VENDA
+        elif acao == "finalizar":
+            cliente_id = int(request.form.get("cliente_id"))
+            forma = request.form.get("forma_pagamento")
+
+            cliente = Cliente.query.get(cliente_id)
+            saldo = get_saldo()
+
+            total_geral = 0
+
+            for item in session["carrinho"]:
+                total = item["quantidade"] * item["preco"]
+
+                # baixa estoque se for produto real
+                if item["produto_id"]:
+                    produto = Produto.query.get(item["produto_id"])
+                    if produto:
+                        produto.estoque -= item["quantidade"]
+
+                venda = Venda(
+                    produto_id=item["produto_id"],
+                    cliente_id=cliente.id,
+                    quantidade=item["quantidade"],
+                    total=total,
+                    forma_pagamento=forma,
+                    pago=(forma != "fiado")
+                )
+
+                db.session.add(venda)
+                total_geral += total
+
+                # financeiro
+                if forma == "fiado":
+                    cliente.divida = (cliente.divida or 0) + total
+                else:
+                    if forma == "dinheiro":
+                        saldo.dinheiro += total
+                    else:
+                        saldo.conta += total
+
+            session["carrinho"] = []
+            session.modified = True
+
+            db.session.commit()
+
+            flash(f"Venda finalizada! Total: R$ {total_geral:.2f}", "success")
+            return redirect(url_for("venda_rapida"))
+
+    total = sum(i["quantidade"] * i["preco"] for i in session["carrinho"])
+
+    return render_template(
+        "venda_rapida.html",
+        clientes=clientes,
+        produtos=produtos,
+        carrinho=session["carrinho"],
+        total=total
+    )
+
+@app.route@app.route("/entrada_rapida", methods=["GET", "POST"])
+@login_obrigatorio
+def entrada_rapida():
+    produtos = Produto.query.all()
+
+    if request.method == "POST":
+        tipo = request.form.get("tipo")
+
+        # 🔹 PRODUTO NORMAL
+        if tipo == "produto":
+            produto_id = int(request.form.get("produto_id"))
+            quantidade = int(request.form.get("quantidade"))
+            valor = float(request.form.get("valor"))
+
+            produto = Produto.query.get(produto_id)
+            saldo = get_saldo()
+
+            if produto:
+                produto.estoque += quantidade
+                saldo.conta -= valor
+
+                db.session.add(MovimentoEstoque(
+                    produto_id=produto.id,
+                    tipo="entrada",
+                    quantidade=quantidade,
+                    motivo="Entrada rápida"
+                ))
+
+        # 🔹 ENTRADA DIVERSA
+        elif tipo == "diverso":
+            valor = float(request.form.get("valor_diverso"))
+            saldo = get_saldo()
+
+            saldo.conta -= valor
+
+        db.session.commit()
+        flash("Entrada registrada com sucesso!", "success")
+        return redirect(url_for("entrada_rapida"))
+
+    return render_template("entrada_rapida.html", produtos=produtos)
 
 @app.route("/cliente")
 def cliente_dashboard():
@@ -1598,6 +1776,7 @@ def marcar_lida(id):
     notificacao.lida = True
     db.session.commit()
     return redirect(url_for("notificacoes"))
+
 # ===============================
 # 💰 PAINEL FINANCEIRO
 # ===============================

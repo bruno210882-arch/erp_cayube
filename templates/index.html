@@ -1,36 +1,182 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block conteudo %}
-<div class="hero">
-    <div>
-        <h2>Dashboard do ERP</h2>
-        <p>Visão rápida do caixa, estoque, fiado e desempenho das vendas.</p>
+
+<h2>Dashboard</h2>
+
+<!-- ===================== -->
+<!-- 📊 INDICADORES -->
+<!-- ===================== -->
+
+<div class="grid-cards">
+
+    <div class="card azul">
+        <h4>Vendas Hoje</h4>
+        <h2>R$ {{ "%.2f"|format(vendas_hoje or 0) }}</h2>
     </div>
-    <div class="hero-badge">Resumo operacional do dia</div>
-</div>
-<div class="stats-grid">
-    <div class="stat-card"><h3>Dinheiro</h3><p>R$ {{ "%.2f"|format(saldo.dinheiro or 0) }}</p></div>
-    <div class="stat-card"><h3>Conta</h3><p>R$ {{ "%.2f"|format(saldo.conta or 0) }}</p></div>
-    <div class="stat-card"><h3>Total Caixa</h3><p>R$ {{ "%.2f"|format((saldo.dinheiro or 0) + (saldo.conta or 0)) }}</p></div>
-    <div class="stat-card"><h3>Vendas Recebidas</h3><p>R$ {{ "%.2f"|format(total_vendas or 0) }}</p></div>
-    <div class="stat-card"><h3>Total Fiado</h3><p>R$ {{ "%.2f"|format(total_fiado or 0) }}</p></div>
-    <div class="stat-card"><h3>Itens em Estoque</h3><p>{{ total_estoque or 0 }}</p></div>
-    <div class="stat-card"><h3>Lucro Total</h3><p>R$ {{ "%.2f"|format(lucro_total or 0) }}</p></div>
-</div>
-{% if produtos_baixo_estoque %}
-<div class="card">
-    <div class="toolbar">
-        <div>
-            <h3 class="panel-title">Produtos com estoque baixo</h3>
-            <div class="sub">Acompanhe os itens que merecem reposição imediata.</div>
-        </div>
-        <span class="pill warning">Atenção ao estoque</span>
+
+    <div class="card verde">
+        <h4>Caixa</h4>
+        <h2>R$ {{ "%.2f"|format(caixa_total or 0) }}</h2>
     </div>
-    <table>
-        <tr><th>Produto</th><th>Estoque</th></tr>
-        {% for p in produtos_baixo_estoque %}
-        <tr><td>{{ p.nome }}</td><td class="danger">{{ p.estoque }}</td></tr>
-        {% endfor %}
-    </table>
+
+    <div class="card vermelho">
+        <h4>Fiado</h4>
+        <h2>R$ {{ "%.2f"|format(total_fiado or 0) }}</h2>
+    </div>
+
+    <div class="card roxo">
+        <h4>Total Geral</h4>
+        <h2>R$ {{ "%.2f"|format(total_vendas or 0) }}</h2>
+    </div>
+
 </div>
-{% endif %}
+
+<hr>
+
+<!-- ===================== -->
+<!-- ⚠️ TOP DEVEDORES -->
+<!-- ===================== -->
+
+<h3>⚠️ Maiores Devedores</h3>
+
+{% for nome, total in top_devedores %}
+    <p>{{ nome }} - R$ {{ "%.2f"|format(total) }}</p>
+{% else %}
+    <p>Nenhum registro</p>
+{% endfor %}
+
+<hr>
+
+<!-- ===================== -->
+<!-- ⏳ DÍVIDAS ANTIGAS -->
+<!-- ===================== -->
+
+<h3>⏳ Dívidas Antigas</h3>
+
+{% for v in antigos %}
+    <p>Venda #{{ v.id }} - R$ {{ "%.2f"|format(v.total) }}</p>
+{% else %}
+    <p>Nenhum registro</p>
+{% endfor %}
+
+<hr>
+
+<!-- ===================== -->
+<!-- 📦 ESTOQUE BAIXO -->
+<!-- ===================== -->
+
+<h3>📦 Estoque Baixo</h3>
+
+{% for p in estoque_baixo %}
+    <p>{{ p.nome }} - {{ p.estoque }} unidades</p>
+{% else %}
+    <p>Sem itens críticos</p>
+{% endfor %}
+
+<hr>
+
+<!-- ===================== -->
+<!-- ⚡ SETORES -->
+<!-- ===================== -->
+
+<div class="setor" onclick="toggle('operacoes')">📦 Operações</div>
+<div id="operacoes" class="conteudo">
+    <a href="/venda_rapida">Venda Rápida</a>
+    <a href="/entrada_rapida">Entrada Rápida</a>
+    <a href="/baixa_estoque">Baixa sem Venda</a>
+    <a href="/pedidos_clientes">Pedidos Clientes</a>
+</div>
+
+<div class="setor" onclick="toggle('financeiro')">💰 Financeiro</div>
+<div id="financeiro" class="conteudo">
+    <a href="/painel_financeiro">Painel Financeiro</a>
+    <a href="/ranking_clientes">Ranking</a>
+    <a href="/relatorio_fiado_cliente">Fiado Cliente</a>
+    <a href="/relatorio_fiado_local">Fiado Local</a>
+</div>
+
+<div class="setor" onclick="toggle('cadastros')">👥 Cadastros</div>
+<div id="cadastros" class="conteudo">
+    <a href="/clientes">Clientes</a>
+    <a href="/produtos">Produtos</a>
+    <a href="/usuarios">Usuários</a>
+</div>
+
+<div class="setor" onclick="toggle('relatorios')">📊 Relatórios</div>
+<div id="relatorios" class="conteudo">
+    <a href="/relatorios">Relatórios Gerais</a>
+</div>
+
+<!-- ===================== -->
+<!-- 🎨 ESTILO -->
+<!-- ===================== -->
+
+<style>
+.grid-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.card{
+    padding:20px;
+    border-radius:15px;
+    color:white;
+}
+
+.azul{background:#2563eb;}
+.verde{background:#16a34a;}
+.vermelho{background:#dc2626;}
+.roxo{background:#7c3aed;}
+
+.setor{
+    background:#1e293b;
+    color:white;
+    padding:15px;
+    border-radius:10px;
+    margin-top:10px;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+.conteudo{
+    display:none;
+    margin:10px 0;
+    padding:10px;
+    background:#f1f5f9;
+    border-radius:10px;
+}
+
+.conteudo a{
+    display:block;
+    padding:10px;
+    margin:5px 0;
+    background:#2563eb;
+    color:white;
+    text-decoration:none;
+    border-radius:8px;
+}
+
+.conteudo a:hover{
+    background:#1d4ed8;
+}
+</style>
+
+<!-- ===================== -->
+<!-- ⚙️ SCRIPT -->
+<!-- ===================== -->
+
+<script>
+function toggle(id){
+    let el = document.getElementById(id)
+
+    if(el.style.display === "block"){
+        el.style.display = "none"
+    }else{
+        el.style.display = "block"
+    }
+}
+</script>
+
 {% endblock %}
