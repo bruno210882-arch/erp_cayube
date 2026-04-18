@@ -111,7 +111,6 @@ class Saldo(db.Model):
     dinheiro = db.Column(db.Float, default=0)
     conta = db.Column(db.Float, default=0)
 
-
 class Movimento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tipo = db.Column(db.String(20), nullable=False)
@@ -243,6 +242,84 @@ def manifest_erp():
         ]
     })
 
+@app.route("/finalizar_venda", methods=["POST"])
+def finalizar_venda():
+    if "usuario_id" not in session:
+        return redirect(url_for("login"))
+
+    carrinho = session.get("carrinho", [])
+
+    if not carrinho:
+        flash("Carrinho vazio!", "warning")
+        return redirect(url_for("venda"))
+
+    cliente_id = request.form.get("cliente_id")
+    forma_pagamento = request.form.get("forma_pagamento")
+
+    total_venda = 0
+
+    # Buscar cliente (se houver)
+    cliente = None
+    if cliente_id:
+        cliente = Cliente.query.get(cliente_id)
+
+    # Buscar ou criar saldo
+    saldo = Saldo.query.first()
+    if not saldo:
+        saldo = Saldo(dinheiro=0, conta=0)
+        db.session.add(saldo)
+
+    # Processar cada item
+    for item in carrinho:
+
+        produto = None
+        if item.get("produto_id"):
+            produto = Produto.query.get(item["produto_id"])
+
+        quantidade = item["quantidade"]
+        preco = item["preco"]
+        total_item = preco * quantidade
+
+        total_venda += total_item
+
+        # Baixa de estoque
+        if produto:
+            produto.estoque -= quantidade
+
+        # Criar venda
+        venda = Venda(
+            produto_id=item.get("produto_id"),
+            cliente_id=cliente_id if cliente_id else None,
+            quantidade=quantidade,
+            total=total_item
+        )
+
+        db.session.add(venda)
+
+    # =========================
+    # FINANCEIRO
+    # =========================
+    if forma_pagamento == "dinheiro":
+        saldo.dinheiro += total_venda
+
+    elif forma_pagamento == "transferencia":
+        saldo.conta += total_venda
+
+    elif forma_pagamento == "fiado":
+        if cliente:
+            cliente.divida = (cliente.divida or 0) + total_venda
+
+    # =========================
+    # SALVAR
+    # =========================
+    db.session.commit()
+
+    # Limpar carrinho
+    session["carrinho"] = []
+
+    flash("Venda finalizada com sucesso!", "success")
+
+    return redirect(url_for("venda"))
 
 @app.route("/manifest-cliente.webmanifest")
 def manifest_cliente():
@@ -593,6 +670,58 @@ def add_cliente():
         db.session.rollback()
         return f"Erro ao cadastrar cliente: {str(e)}"
 
+from flask import session, redirect, url_for
+
+# =========================
+# ADICIONAR ITEM AO CARRINHO
+# =========================
+@app.route("/adicionar_item_venda", methods=["POST"])
+def adicionar_item_venda():
+    if "carrinho" not in session:
+        session["carrinho"] = []
+
+    produto_id = request.form.get("produto_id")
+    nome = request.form.get("nome")
+    preco = float(request.form.get("preco"))
+    quantidade = int(request.form.get("quantidade"))
+
+    carrinho = session["carrinho"]
+
+    carrinho.append({
+        "produto_id": produto_id,
+        "nome": nome,
+        "preco": preco,
+        "quantidade": quantidade
+    })
+
+    session["carrinho"] = carrinho
+
+    return redirect(url_for("venda"))
+
+
+# =========================
+# REMOVER ITEM DO CARRINHO
+# =========================
+@app.route("/remover_item_venda/<int:index>")
+def remover_item_venda(index):
+    if "carrinho" in session:
+        carrinho = session["carrinho"]
+
+        if 0 <= index < len(carrinho):
+            carrinho.pop(index)
+
+        session["carrinho"] = carrinho
+
+    return redirect(url_for("venda"))
+
+
+# =========================
+# LIMPAR CARRINHO (OPCIONAL)
+# =========================
+@app.route("/limpar_carrinho")
+def limpar_carrinho():
+    session["carrinho"] = []
+    return redirect(url_for("venda"))
 
 @app.route("/excluir_cliente/<int:id>")
 @login_obrigatorio
