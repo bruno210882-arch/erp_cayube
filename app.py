@@ -797,17 +797,18 @@ def fiado():
     clientes_fiado = query.distinct().order_by(Cliente.nome.asc()).all()
 
     for cliente in clientes_fiado:
-        total_divida = (
-            db.session.query(func.sum(Venda.total))
-            .filter(
+        vendas_abertas = (
+            Venda.query.filter(
                 Venda.cliente_id == cliente.id,
                 Venda.pago == False,
                 Venda.forma_pagamento == "fiado",
             )
-            .scalar()
-            or 0
+            .order_by(Venda.data.desc(), Venda.id.desc())
+            .all()
         )
+        total_divida = sum((v.total or 0) for v in vendas_abertas)
         cliente.divida = total_divida
+        cliente.vendas_abertas = vendas_abertas
 
     total_fiado = sum((cliente.divida or 0) for cliente in clientes_fiado)
     quantidade_clientes = len(clientes_fiado)

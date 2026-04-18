@@ -1,98 +1,113 @@
 {% extends "base.html" %}
 
+{% block titulo %}Controle de Fiado{% endblock %}
+
 {% block conteudo %}
-<div class="container-fluid py-4">
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">Controle de Fiado</h2>
+<div class="hero">
+    <div>
+        <h2>Controle de Fiado</h2>
+        <p>Consulte clientes com saldo em aberto e dê baixa por dinheiro ou transferência.</p>
     </div>
+    <div class="hero-badge">Total em aberto: R$ {{ "%.2f"|format(total_fiado or 0) }}</div>
+</div>
 
-    <div class="row mb-4">
-        <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card shadow-sm border-0">
-                <div class="card-body">
-                    <h6 class="text-muted">Clientes com fiado</h6>
-                    <h3>{{ quantidade_clientes }}</h3>
-                </div>
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Clientes com fiado</h3>
+        <p>{{ quantidade_clientes or 0 }}</p>
+    </div>
+    <div class="stat-card">
+        <h3>Total em aberto</h3>
+        <p>R$ {{ "%.2f"|format(total_fiado or 0) }}</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <div>
+            <h3 class="panel-title">Buscar cliente</h3>
+            <div class="sub">Pesquise por nome, telefone ou local.</div>
+        </div>
+    </div>
+    <form method="GET" action="{{ url_for('fiado') }}">
+        <div class="form-grid">
+            <div class="field">
+                <label for="busca">Busca</label>
+                <input id="busca" type="text" name="busca" value="{{ busca or '' }}" placeholder="Digite nome, telefone ou local">
+            </div>
+            <div class="field" style="align-self:end;">
+                <button type="submit" class="btn">Buscar</button>
             </div>
         </div>
+    </form>
+</div>
 
-        <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card shadow-sm border-0">
-                <div class="card-body">
-                    <h6 class="text-muted">Total em aberto</h6>
-                    <h3>R$ {{ "%.2f"|format(total_fiado or 0) }}</h3>
+<div class="card">
+    <div class="toolbar">
+        <div>
+            <h3 class="panel-title">Clientes com valores em aberto</h3>
+            <div class="sub">Cada lançamento abaixo pode ser baixado individualmente.</div>
+        </div>
+    </div>
+
+    {% if clientes_fiado %}
+        {% for cliente in clientes_fiado %}
+        <div class="card" style="margin-bottom:18px; background:linear-gradient(180deg,#ffffff 0,#f8fbff 100%);">
+            <div class="toolbar">
+                <div>
+                    <h3 class="section-title" style="margin-bottom:6px;">{{ cliente.nome }}</h3>
+                    <div class="sub">
+                        Telefone: {{ cliente.telefone or '-' }} &nbsp;|&nbsp;
+                        Local: {{ cliente.local or '-' }} &nbsp;|&nbsp;
+                        Em aberto: <span class="danger">R$ {{ "%.2f"|format(cliente.divida or 0) }}</span>
+                    </div>
+                </div>
+                <div class="actions-inline">
+                    <a class="btn btn-secondary" href="{{ url_for('historico_cliente', cliente_id=cliente.id) }}">Histórico</a>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
-            <form method="GET" action="{{ url_for('fiado') }}">
-                <div class="row g-2 align-items-end">
-                    <div class="col-md-10">
-                        <label class="form-label">Buscar cliente</label>
-                        <input
-                            type="text"
-                            name="busca"
-                            class="form-control"
-                            placeholder="Digite nome, telefone ou local"
-                            value="{{ busca or '' }}"
-                        >
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">Buscar</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="card shadow-sm border-0">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped align-middle">
+            {% if cliente.vendas_abertas %}
+            <div style="overflow-x:auto;">
+                <table>
                     <thead>
                         <tr>
-                            <th>Cliente</th>
-                            <th>Telefone</th>
-                            <th>Local</th>
-                            <th>Valor em aberto</th>
-                            <th>Ações</th>
+                            <th>Data</th>
+                            <th>Venda</th>
+                            <th>Quantidade</th>
+                            <th>Total</th>
+                            <th>Recebimento</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% if clientes_fiado %}
-                            {% for cliente in clientes_fiado %}
-                            <tr>
-                                <td>{{ cliente.nome }}</td>
-                                <td>{{ cliente.telefone or '-' }}</td>
-                                <td>{{ cliente.local or '-' }}</td>
-                                <td>
-                                    <strong class="text-danger">
-                                        R$ {{ "%.2f"|format(cliente.divida or 0) }}
-                                    </strong>
-                                </td>
-                                <td>
-                                    <a href="{{ url_for('historico_cliente', cliente_id=cliente.id) }}" class="btn btn-sm btn-outline-primary">
-                                        Histórico
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-4">
-                                    Nenhum cliente com fiado encontrado.
-                                </td>
-                            </tr>
-                        {% endif %}
+                        {% for venda in cliente.vendas_abertas %}
+                        <tr>
+                            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') if venda.data else '-' }}</td>
+                            <td>#{{ venda.id }}</td>
+                            <td>{{ venda.quantidade }}</td>
+                            <td class="danger">R$ {{ "%.2f"|format(venda.total or 0) }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('receber_venda', venda_id=venda.id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                    <select name="forma" required style="max-width:180px;">
+                                        <option value="">Escolha a forma</option>
+                                        <option value="dinheiro">Dinheiro</option>
+                                        <option value="transferencia">Transferência</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-success">Dar baixa</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% else %}
+            <div class="empty-state">Nenhuma venda em aberto para este cliente.</div>
+            {% endif %}
         </div>
-    </div>
-
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">Nenhum cliente com fiado encontrado.</div>
+    {% endif %}
 </div>
 {% endblock %}
