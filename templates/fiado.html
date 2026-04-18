@@ -62,9 +62,6 @@
                         Em aberto: <span class="danger">R$ {{ "%.2f"|format(cliente.divida or 0) }}</span>
                     </div>
                 </div>
-                <div class="actions-inline">
-                    <a class="btn btn-secondary" href="{{ url_for('historico_cliente', cliente_id=cliente.id) }}">Histórico</a>
-                </div>
             </div>
 
             {% if cliente.vendas_abertas %}
@@ -102,12 +99,12 @@
                 </table>
             </div>
             {% else %}
-            <div class="empty-state">Nenhuma venda em aberto para este cliente.</div>
+            <div class="empty-state">Nenhum lançamento em aberto para este cliente.</div>
             {% endif %}
         </div>
         {% endfor %}
     {% else %}
-        <div class="empty-state">Nenhum cliente com fiado encontrado.</div>
+    <div class="empty-state">Nenhum cliente com fiado encontrado.</div>
     {% endif %}
 </div>
 {% endblock %}

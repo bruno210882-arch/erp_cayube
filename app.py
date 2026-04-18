@@ -31,7 +31,7 @@ if uri:
     if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "postgresql://", 1)
 else:
-    uri = "sqlite:///instance/erp_cayube.db"
+    uri = "sqlite:///erp_cayube.db"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -161,15 +161,6 @@ def get_saldo():
     return saldo
 
 
-def get_or_create_produto_diverso():
-    produto = Produto.query.filter(func.lower(Produto.nome) == "item diverso").first()
-    if not produto:
-        produto = Produto(nome="Item Diverso", preco=0, custo=0, estoque=999999)
-        db.session.add(produto)
-        db.session.commit()
-    return produto
-
-
 def formatar_valor_pix(valor):
     return f"{valor:.2f}"
 
@@ -223,45 +214,6 @@ def gerar_qrcode_base64(texto):
     buffer.seek(0)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-@app.route("/corrigir_banco_vendas")
-def corrigir_banco_vendas():
-    if "usuario_id" not in session:
-        return redirect(url_for("login"))
-
-    vendas = Venda.query.all()
-    corrigidos = 0
-
-    for v in vendas:
-        alterou = False
-
-        # Garante que o campo exista em objetos antigos
-        status_atual = (getattr(v, "status_pedido", "") or "").strip().lower()
-
-        # 1) Pedidos feitos pelo cliente:
-        # normalmente têm cliente_id preenchido e ficam pendentes/aprovados
-        # se já estiver marcado como pedido, mantém
-        if status_atual in ["aguardando_aprovacao", "pedido_cliente", "pedido", "aguardando"]:
-            if v.status_pedido != "aguardando_aprovacao":
-                v.status_pedido = "aguardando_aprovacao"
-                alterou = True
-
-        # 2) Se já foi aprovado como pedido do cliente, mantém como aprovado
-        elif status_atual == "aprovado":
-            # mantém aprovado
-            pass
-
-        # 3) Vendas diretas do ERP:
-        # tudo que não for pedido do cliente fica como venda direta
-        else:
-            if v.status_pedido != "venda_direta":
-                v.status_pedido = "venda_direta"
-                alterou = True
-
-        if alterou:
-            corrigidos += 1
-
-    db.session.commit()
-    return f"Correção concluída com sucesso. {corrigidos} registro(s) ajustado(s)."
 
 @app.route("/manifest-erp.webmanifest")
 def manifest_erp():
@@ -771,8 +723,8 @@ def venda():
                 total=total,
                 pago=pago,
                 forma_pagamento=forma,
-                status_pedido="venda_direta",
-                status_pix="pago" if forma in ["pix", "transferencia", "dinheiro"] else "pendente"
+                status_pedido="aprovado",
+                status_pix="pago" if forma == "pix" else ("pendente" if forma == "fiado" else "pago")
             )
 
             produto.estoque -= quantidade
@@ -836,17 +788,18 @@ def fiado():
     clientes_fiado = query.distinct().order_by(Cliente.nome.asc()).all()
 
     for cliente in clientes_fiado:
-        total_divida = (
-            db.session.query(func.sum(Venda.total))
-            .filter(
+        vendas_abertas = (
+            Venda.query.filter(
                 Venda.cliente_id == cliente.id,
                 Venda.pago == False,
                 Venda.forma_pagamento == "fiado",
             )
-            .scalar()
-            or 0
+            .order_by(Venda.data.desc(), Venda.id.desc())
+            .all()
         )
+        total_divida = sum((v.total or 0) for v in vendas_abertas)
         cliente.divida = total_divida
+        cliente.vendas_abertas = vendas_abertas
 
     total_fiado = sum((cliente.divida or 0) for cliente in clientes_fiado)
     quantidade_clientes = len(clientes_fiado)
@@ -867,25 +820,28 @@ def receber_venda(venda_id):
     cliente = Cliente.query.get(venda.cliente_id)
     saldo = get_saldo()
 
-    forma = request.form["forma"]
+    forma = (request.form.get("forma") or "").strip().lower()
+    if forma not in ["dinheiro", "transferencia"]:
+        flash("Escolha Dinheiro ou Transferência para dar baixa.", "warning")
+        return redirect(url_for("fiado"))
 
     if not venda.pago:
         venda.pago = True
         venda.forma_pagamento = forma
         venda.status_pix = "pago"
 
-        if forma.lower() == "dinheiro":
-            saldo.dinheiro += venda.total
+        if forma == "dinheiro":
+            saldo.dinheiro = (saldo.dinheiro or 0) + (venda.total or 0)
         else:
-            saldo.conta += venda.total
+            saldo.conta = (saldo.conta or 0) + (venda.total or 0)
 
         if cliente:
-            cliente.divida = max((cliente.divida or 0) - venda.total, 0)
+            cliente.divida = max((cliente.divida or 0) - (venda.total or 0), 0)
 
         db.session.commit()
+        flash("Baixa realizada com sucesso!", "success")
 
     return redirect(url_for("fiado"))
-
 
 @app.route("/movimentacao", methods=["GET", "POST"])
 @login_obrigatorio
@@ -1367,13 +1323,8 @@ def venda_rapida():
                     if produto:
                         produto.estoque -= item["quantidade"]
 
-                produto_id_venda = item["produto_id"]
-                if not produto_id_venda:
-                    produto_diverso = get_or_create_produto_diverso()
-                    produto_id_venda = produto_diverso.id
-
                 venda = Venda(
-                    produto_id=produto_id_venda,
+                    produto_id=item["produto_id"],
                     cliente_id=cliente.id,
                     quantidade=item["quantidade"],
                     total=total,
@@ -1414,81 +1365,67 @@ def venda_rapida():
 @app.route("/entrada_rapida", methods=["GET", "POST"])
 @login_obrigatorio
 def entrada_rapida():
-    produtos = Produto.query.order_by(Produto.nome.asc()).all()
-    saldo = get_saldo()
+    produtos = Produto.query.all()
 
     if request.method == "POST":
-        produto_id = request.form.get("produto_id")
-        quantidade = int(request.form.get("quantidade", 0) or 0)
-        valor_compra = float(request.form.get("valor_compra", 0) or 0)
-        origem = (request.form.get("origem") or "").strip().lower()
+        tipo = request.form.get("tipo")
 
-        if not produto_id or quantidade <= 0 or valor_compra < 0:
-            flash("Preencha os dados da entrada corretamente.", "warning")
-            return redirect(url_for("entrada_rapida"))
+        # 🔹 PRODUTO NORMAL
+        if tipo == "produto":
+            produto_id = int(request.form.get("produto_id"))
+            quantidade = int(request.form.get("quantidade"))
+            valor = float(request.form.get("valor"))
 
-        produto = Produto.query.get_or_404(int(produto_id))
+            produto = Produto.query.get(produto_id)
+            saldo = get_saldo()
 
-        produto.estoque = (produto.estoque or 0) + quantidade
+            if produto:
+                produto.estoque += quantidade
+                saldo.conta -= valor
 
-        if origem == "dinheiro":
-            saldo.dinheiro -= valor_compra
-        elif origem == "conta":
-            saldo.conta -= valor_compra
-        elif origem == "capital_dinheiro":
-            saldo.dinheiro += valor_compra
-        elif origem == "capital_conta":
-            saldo.conta += valor_compra
+                db.session.add(MovimentoEstoque(
+                    produto_id=produto.id,
+                    tipo="entrada",
+                    quantidade=quantidade,
+                    motivo="Entrada rápida"
+                ))
 
-        movimento_estoque = MovimentoEstoque(
-            produto_id=produto.id,
-            tipo="entrada",
-            quantidade=quantidade,
-            motivo="Entrada rápida"
-        )
-        db.session.add(movimento_estoque)
+        # 🔹 ENTRADA DIVERSA
+        elif tipo == "diverso":
+            valor = float(request.form.get("valor_diverso"))
+            saldo = get_saldo()
 
-        movimento_financeiro = Movimento(
-            tipo="entrada" if origem.startswith("capital_") else "saida",
-            valor=valor_compra,
-            origem="dinheiro" if origem in ["dinheiro", "capital_dinheiro"] else "conta",
-            descricao=f"Entrada rápida de estoque - {produto.nome}"
-        )
-        db.session.add(movimento_financeiro)
+            saldo.conta -= valor
 
         db.session.commit()
         flash("Entrada registrada com sucesso!", "success")
         return redirect(url_for("entrada_rapida"))
 
-    movimentos = MovimentoEstoque.query.filter_by(tipo="entrada")\
-        .order_by(MovimentoEstoque.data.desc())\
-        .limit(20).all()
-
-    return render_template(
-        "entrada_rapida.html",
-        produtos=produtos,
-        saldo=saldo,
-        movimentos=movimentos
-    )
+    return render_template("entrada_rapida.html", produtos=produtos)
 
 @app.route("/cliente")
-@login_cliente_obrigatorio
 def cliente_dashboard():
+    if "cliente_id" not in session:
+        return redirect(url_for("login_cliente"))
+
     cliente_id = session["cliente_id"]
     cliente = Cliente.query.get_or_404(cliente_id)
 
-    pedidos = (
-        Venda.query.filter_by(cliente_id=cliente_id)
-        .order_by(Venda.data.desc(), Venda.id.desc())
-        .all()
-    )
+    # TODOS os pedidos do cliente
+    pedidos = Pedido.query.filter_by(
+        cliente_id=cliente_id
+    ).order_by(Pedido.id.desc()).all()
 
+    # FILTROS
     pedidos_abertos = [
         p for p in pedidos
-        if (not p.pago) or (p.forma_pagamento or "").lower() == "fiado" or (p.status_pedido or "") in ["aguardando_aprovacao", "aguardando_pagamento"]
+        if (p.status or "").lower() in ["aberto", "pendente", "fiado"]
     ]
 
-    historico = [p for p in pedidos if p not in pedidos_abertos]
+    historico = [
+        p for p in pedidos
+        if (p.status or "").lower() in ["entregue", "finalizado", "pago", "concluido"]
+    ]
 
     total_aberto = sum(float(p.total or 0) for p in pedidos_abertos)
 
@@ -1682,8 +1619,7 @@ def pedidos_clientes():
         db.session.query(Venda, Cliente, Produto)
         .join(Cliente, Venda.cliente_id == Cliente.id)
         .join(Produto, Venda.produto_id == Produto.id)
-        .filter(Venda.status_pedido != "venda_direta")
-        .order_by(Venda.data.desc(), Venda.id.desc())
+        .order_by(Venda.data.desc())
         .all()
     )
 
@@ -1695,10 +1631,6 @@ def pedidos_clientes():
 def aprovar_pedido(venda_id):
     venda = Venda.query.get_or_404(venda_id)
     produto = Produto.query.get(venda.produto_id)
-
-    if venda.status_pedido == "venda_direta":
-        flash("Vendas diretas não aparecem na fila de pedidos.", "warning")
-        return redirect(url_for("vendas_diretas"))
 
     if venda.status_pedido != "aguardando_aprovacao":
         flash("Esse pedido já foi analisado.", "warning")
@@ -1720,10 +1652,6 @@ def aprovar_pedido(venda_id):
 def recusar_pedido(venda_id):
     venda = Venda.query.get_or_404(venda_id)
 
-    if venda.status_pedido == "venda_direta":
-        flash("Vendas diretas não fazem parte da fila de pedidos.", "warning")
-        return redirect(url_for("vendas_diretas"))
-
     if venda.status_pedido != "aguardando_aprovacao":
         flash("Esse pedido já foi analisado.", "warning")
         return redirect(url_for("pedidos_clientes"))
@@ -1743,10 +1671,6 @@ def confirmar_pix(venda_id):
     cliente = Cliente.query.get(venda.cliente_id)
     produto = Produto.query.get(venda.produto_id)
     saldo = get_saldo()
-
-    if venda.status_pedido == "venda_direta":
-        flash("Venda direta já é lançada fora da fila de pedidos.", "warning")
-        return redirect(url_for("vendas_diretas"))
 
     if venda.status_pedido != "aprovado":
         flash("O pedido precisa ser aprovado antes de confirmar o PIX.", "danger")
@@ -1946,108 +1870,6 @@ def relatorio_fiado_local():
     return render_template("relatorio_fiado_local.html", dados=dados)
 
 
-
-@app.route("/historico_cliente/<int:cliente_id>")
-@login_obrigatorio
-def historico_cliente(cliente_id):
-    cliente = Cliente.query.get_or_404(cliente_id)
-    registros = (
-        db.session.query(Venda, Cliente, Produto)
-        .join(Cliente, Venda.cliente_id == Cliente.id)
-        .join(Produto, Venda.produto_id == Produto.id)
-        .filter(Cliente.id == cliente_id)
-        .order_by(Venda.data.desc(), Venda.id.desc())
-        .all()
-    )
-
-    vendas = [
-        {
-            "id": venda.id,
-            "cliente": cli.nome,
-            "produto": prod.nome,
-            "quantidade": venda.quantidade,
-            "total": venda.total,
-            "pago": venda.pago,
-            "forma_pagamento": venda.forma_pagamento,
-        }
-        for venda, cli, prod in registros
-    ]
-
-    return render_template("historico.html", vendas=vendas, cliente=cliente)
-
-
-@app.route("/vendas_diretas")
-@login_obrigatorio
-def vendas_diretas():
-    data_inicial = request.args.get("data_inicial", "")
-    data_final = request.args.get("data_final", "")
-    cliente_id = request.args.get("cliente_id", "")
-    forma = request.args.get("forma", "")
-
-    query = (
-        db.session.query(Venda, Cliente, Produto)
-        .join(Cliente, Venda.cliente_id == Cliente.id)
-        .join(Produto, Venda.produto_id == Produto.id)
-        .filter(Venda.status_pedido == "venda_direta")
-    )
-
-    if data_inicial:
-        query = query.filter(func.date(Venda.data) >= data_inicial)
-    if data_final:
-        query = query.filter(func.date(Venda.data) <= data_final)
-    if cliente_id:
-        query = query.filter(Venda.cliente_id == int(cliente_id))
-    if forma:
-        query = query.filter(Venda.forma_pagamento == forma)
-
-    vendas = query.order_by(Venda.data.desc(), Venda.id.desc()).all()
-    total_vendas = sum((v.total or 0) for v, _, _ in vendas)
-    total_recebido = sum((v.total or 0) for v, _, _ in vendas if v.pago)
-    total_pendente = total_vendas - total_recebido
-
-    filtros = {
-        "data_inicial": data_inicial,
-        "data_final": data_final,
-        "cliente_id": cliente_id,
-        "forma": forma,
-    }
-
-    return render_template(
-        "vendas_diretas.html",
-        vendas=vendas,
-        clientes=Cliente.query.order_by(Cliente.nome.asc()).all(),
-        total_vendas=total_vendas,
-        total_recebido=total_recebido,
-        total_pendente=total_pendente,
-        filtros=filtros,
-    )
-
-
-@app.route("/excluir_venda/<int:venda_id>")
-@login_obrigatorio
-def excluir_venda(venda_id):
-    venda = Venda.query.get_or_404(venda_id)
-    if venda.status_pedido != "venda_direta":
-        flash("Use esta ação apenas para vendas diretas do ERP.", "warning")
-        return redirect(url_for("pedidos_clientes"))
-    return redirect(url_for("cancelar_venda", id=venda_id))
-
-
-@app.route("/cliente/notificacoes")
-@login_cliente_obrigatorio
-def cliente_notificacoes():
-    notificacoes = Notificacao.query.order_by(Notificacao.data.desc(), Notificacao.id.desc()).all()
-    return render_template("cliente_notificacoes.html", notificacoes=notificacoes)
-
-
-@app.route("/cliente/notificacao/lida/<int:id>")
-@login_cliente_obrigatorio
-def cliente_marcar_lida(id):
-    notificacao = Notificacao.query.get_or_404(id)
-    notificacao.lida = True
-    db.session.commit()
-    return redirect(url_for("cliente_notificacoes"))
-
 # ===============================
 # ❌ CANCELAMENTO DE VENDA
 # ===============================
@@ -2055,9 +1877,6 @@ def cliente_marcar_lida(id):
 @login_obrigatorio
 def cancelar_venda(id):
     venda = Venda.query.get_or_404(id)
-    if venda.status_pedido != "venda_direta":
-        flash("Somente vendas diretas podem ser estornadas por esta tela.", "warning")
-        return redirect(url_for("pedidos_clientes"))
     produto = Produto.query.get(venda.produto_id)
     cliente = Cliente.query.get(venda.cliente_id)
     saldo = get_saldo()
