@@ -31,7 +31,7 @@ if uri:
     if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "postgresql://", 1)
 else:
-    uri = "sqlite:///erp_cayube.db"
+    uri = "sqlite:///instance/erp_cayube.db"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -1365,43 +1365,63 @@ def venda_rapida():
 @app.route("/entrada_rapida", methods=["GET", "POST"])
 @login_obrigatorio
 def entrada_rapida():
-    produtos = Produto.query.all()
+    produtos = Produto.query.order_by(Produto.nome.asc()).all()
+    saldo = get_saldo()
 
     if request.method == "POST":
-        tipo = request.form.get("tipo")
+        try:
+            produto_id = request.form.get("produto_id")
+            quantidade = int(request.form.get("quantidade", 0) or 0)
+            valor_compra = float(request.form.get("valor_compra", 0) or 0)
+            origem = (request.form.get("origem") or "").strip().lower()
 
-        # 🔹 PRODUTO NORMAL
-        if tipo == "produto":
-            produto_id = int(request.form.get("produto_id"))
-            quantidade = int(request.form.get("quantidade"))
-            valor = float(request.form.get("valor"))
+            if not produto_id or quantidade <= 0 or valor_compra < 0:
+                flash("Preencha os dados da entrada corretamente.", "warning")
+                return redirect(url_for("entrada_rapida"))
 
-            produto = Produto.query.get(produto_id)
-            saldo = get_saldo()
+            produto = Produto.query.get_or_404(int(produto_id))
+            produto.estoque = (produto.estoque or 0) + quantidade
 
-            if produto:
-                produto.estoque += quantidade
-                saldo.conta -= valor
+            if origem == "dinheiro":
+                saldo.dinheiro = (saldo.dinheiro or 0) - valor_compra
+            elif origem == "conta":
+                saldo.conta = (saldo.conta or 0) - valor_compra
+            elif origem == "capital_dinheiro":
+                saldo.dinheiro = (saldo.dinheiro or 0) + valor_compra
+            elif origem == "capital_conta":
+                saldo.conta = (saldo.conta or 0) + valor_compra
 
-                db.session.add(MovimentoEstoque(
-                    produto_id=produto.id,
-                    tipo="entrada",
-                    quantidade=quantidade,
-                    motivo="Entrada rápida"
-                ))
+            db.session.add(MovimentoEstoque(
+                produto_id=produto.id,
+                tipo="entrada",
+                quantidade=quantidade,
+                motivo="Entrada rápida"
+            ))
 
-        # 🔹 ENTRADA DIVERSA
-        elif tipo == "diverso":
-            valor = float(request.form.get("valor_diverso"))
-            saldo = get_saldo()
+            db.session.add(Movimento(
+                tipo="entrada" if origem.startswith("capital_") else "saida",
+                valor=valor_compra,
+                origem="dinheiro" if origem in ["dinheiro", "capital_dinheiro"] else "conta",
+                descricao=f"Entrada rápida de estoque - {produto.nome}"
+            ))
 
-            saldo.conta -= valor
+            db.session.commit()
+            flash("Entrada registrada com sucesso!", "success")
+            return redirect(url_for("entrada_rapida"))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Erro ao registrar entrada rápida: {str(e)}", "danger")
+            return redirect(url_for("entrada_rapida"))
 
-        db.session.commit()
-        flash("Entrada registrada com sucesso!", "success")
-        return redirect(url_for("entrada_rapida"))
+    movimentos = (
+        MovimentoEstoque.query
+        .filter_by(tipo="entrada")
+        .order_by(MovimentoEstoque.data.desc())
+        .limit(20)
+        .all()
+    )
 
-    return render_template("entrada_rapida.html", produtos=produtos)
+    return render_template("entrada_rapida.html", produtos=produtos, saldo=saldo, movimentos=movimentos)
 
 @app.route("/cliente")
 def cliente_dashboard():
@@ -1411,20 +1431,21 @@ def cliente_dashboard():
     cliente_id = session["cliente_id"]
     cliente = Cliente.query.get_or_404(cliente_id)
 
-    # TODOS os pedidos do cliente
-    pedidos = Pedido.query.filter_by(
-        cliente_id=cliente_id
-    ).order_by(Pedido.id.desc()).all()
+    pedidos = (
+        Venda.query
+        .filter_by(cliente_id=cliente_id)
+        .order_by(Venda.data.desc(), Venda.id.desc())
+        .all()
+    )
 
-    # FILTROS
     pedidos_abertos = [
         p for p in pedidos
-        if (p.status or "").lower() in ["aberto", "pendente", "fiado"]
+        if (not p.pago) and ((p.status_pedido or "").lower() not in ["recusado"])
     ]
 
     historico = [
         p for p in pedidos
-        if (p.status or "").lower() in ["entregue", "finalizado", "pago", "concluido"]
+        if p.pago or ((p.status_pedido or "").lower() in ["aprovado", "entregue", "finalizado"])
     ]
 
     total_aberto = sum(float(p.total or 0) for p in pedidos_abertos)
@@ -1868,6 +1889,125 @@ def relatorio_fiado_local():
     ).group_by(Cliente.local).all()
 
     return render_template("relatorio_fiado_local.html", dados=dados)
+
+
+
+@app.route("/vendas_diretas")
+@login_obrigatorio
+def vendas_diretas():
+    data_inicial = (request.args.get("data_inicial") or "").strip()
+    data_final = (request.args.get("data_final") or "").strip()
+    cliente_id = (request.args.get("cliente_id") or "").strip()
+    forma = (request.args.get("forma") or "").strip().lower()
+
+    query = db.session.query(Venda, Cliente, Produto).join(Cliente, Venda.cliente_id == Cliente.id).join(Produto, Venda.produto_id == Produto.id)
+    query = query.filter(Venda.status_pedido != "aguardando_aprovacao")
+
+    if data_inicial:
+        query = query.filter(func.date(Venda.data) >= data_inicial)
+    if data_final:
+        query = query.filter(func.date(Venda.data) <= data_final)
+    if cliente_id:
+        query = query.filter(Venda.cliente_id == int(cliente_id))
+    if forma:
+        query = query.filter(func.lower(Venda.forma_pagamento) == forma)
+
+    vendas = query.order_by(Venda.data.desc(), Venda.id.desc()).all()
+
+    total_vendas = sum((v.total or 0) for v, _, _ in vendas)
+    total_recebido = sum((v.total or 0) for v, _, _ in vendas if v.pago)
+    total_pendente = sum((v.total or 0) for v, _, _ in vendas if not v.pago)
+
+    filtros = {
+        "data_inicial": data_inicial,
+        "data_final": data_final,
+        "cliente_id": cliente_id,
+        "forma": forma,
+    }
+
+    return render_template(
+        "vendas_diretas.html",
+        vendas=vendas,
+        clientes=Cliente.query.order_by(Cliente.nome.asc()).all(),
+        filtros=filtros,
+        total_vendas=total_vendas,
+        total_recebido=total_recebido,
+        total_pendente=total_pendente,
+    )
+
+
+@app.route("/excluir_venda/<int:venda_id>")
+@login_obrigatorio
+def excluir_venda(venda_id):
+    return cancelar_venda(venda_id)
+
+
+@app.route("/cliente/notificacao/lida/<int:id>")
+@login_cliente_obrigatorio
+def cliente_marcar_lida(id):
+    notificacao = Notificacao.query.get_or_404(id)
+    notificacao.lida = True
+    db.session.commit()
+    return redirect(url_for("cliente_dashboard"))
+
+@app.route("/vendas_diretas")
+@login_obrigatorio
+def vendas_diretas():
+    data_inicial = (request.args.get("data_inicial") or "").strip()
+    data_final = (request.args.get("data_final") or "").strip()
+    cliente_id = (request.args.get("cliente_id") or "").strip()
+    forma = (request.args.get("forma") or "").strip().lower()
+
+    query = (
+        db.session.query(Venda, Cliente, Produto)
+        .join(Cliente, Venda.cliente_id == Cliente.id)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.status_pedido != "aguardando_aprovacao")
+    )
+
+    if data_inicial:
+        query = query.filter(func.date(Venda.data) >= data_inicial)
+    if data_final:
+        query = query.filter(func.date(Venda.data) <= data_final)
+    if cliente_id:
+        query = query.filter(Venda.cliente_id == int(cliente_id))
+    if forma:
+        query = query.filter(func.lower(Venda.forma_pagamento) == forma)
+
+    vendas = query.order_by(Venda.data.desc(), Venda.id.desc()).all()
+    total_vendas = sum((v.total or 0) for v, _, _ in vendas)
+    total_recebido = sum((v.total or 0) for v, _, _ in vendas if v.pago)
+    total_pendente = sum((v.total or 0) for v, _, _ in vendas if not v.pago)
+
+    return render_template(
+        "vendas_diretas.html",
+        vendas=vendas,
+        clientes=Cliente.query.order_by(Cliente.nome.asc()).all(),
+        filtros={
+            "data_inicial": data_inicial,
+            "data_final": data_final,
+            "cliente_id": cliente_id,
+            "forma": forma,
+        },
+        total_vendas=total_vendas,
+        total_recebido=total_recebido,
+        total_pendente=total_pendente,
+    )
+
+
+@app.route("/excluir_venda/<int:venda_id>")
+@login_obrigatorio
+def excluir_venda(venda_id):
+    return cancelar_venda(venda_id)
+
+
+@app.route("/cliente/notificacao/lida/<int:id>")
+@login_cliente_obrigatorio
+def cliente_marcar_lida(id):
+    notificacao = Notificacao.query.get_or_404(id)
+    notificacao.lida = True
+    db.session.commit()
+    return redirect(url_for("cliente_dashboard"))
 
 
 # ===============================
