@@ -1342,7 +1342,7 @@ def venda_rapida():
         total=total
     )
 
-@app.route@app.route("/entrada_rapida", methods=["GET", "POST"])
+@app.route("/entrada_rapida", methods=["GET", "POST"])
 @login_obrigatorio
 def entrada_rapida():
     produtos = Produto.query.all()
