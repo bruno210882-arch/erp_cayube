@@ -16,7 +16,7 @@
             <td>{{ n.data.strftime("%d/%m/%Y %H:%M") if n.data else "" }}</td>
             <td><span class="badge">{{ (n.tipo or "geral").capitalize() }}</span></td>
             <td>{{ n.mensagem }}</td>
-            <td><a class="btn" href="{{ url_for('cliente_marcar_lida', id=n.id) }}">{{ "Abrir" if n.link else "Marcar como lida" }}</a></td>
+            <td><a class="btn" href="{{ url_for('cliente_marcar_lida', id=n.id) }}">Marcar como lida</a></td>
         </tr>
         {% else %}
         <tr><td colspan="4">Nenhuma notificação encontrada.</td></tr>

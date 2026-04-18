@@ -31,7 +31,7 @@ if uri:
     if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "postgresql://", 1)
 else:
-    uri = "sqlite:///erp_cayube.db"
+    uri = "sqlite:///instance/erp_cayube.db"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -159,6 +159,15 @@ def get_saldo():
         db.session.add(saldo)
         db.session.commit()
     return saldo
+
+
+def get_or_create_produto_diverso():
+    produto = Produto.query.filter(func.lower(Produto.nome) == "item diverso").first()
+    if not produto:
+        produto = Produto(nome="Item Diverso", preco=0, custo=0, estoque=999999)
+        db.session.add(produto)
+        db.session.commit()
+    return produto
 
 
 def formatar_valor_pix(valor):
@@ -767,32 +776,48 @@ def venda():
 @app.route("/fiado")
 @login_obrigatorio
 def fiado():
-    vendas_fiado = (
-        db.session.query(Venda, Cliente, Produto)
-        .join(Cliente, Venda.cliente_id == Cliente.id)
-        .join(Produto, Venda.produto_id == Produto.id)
-        .filter(Venda.pago == False, Venda.forma_pagamento == "fiado")
-        .all()
-    )
+    busca = (request.args.get("busca") or "").strip()
 
-    clientes_resumo = (
-        db.session.query(
-            Cliente.nome,
-            func.sum(Venda.total).label("total_divida")
-        )
+    query = (
+        db.session.query(Cliente)
         .join(Venda, Venda.cliente_id == Cliente.id)
         .filter(Venda.pago == False, Venda.forma_pagamento == "fiado")
-        .group_by(Cliente.nome)
-        .all()
     )
 
-    total_geral_fiado = sum(c.total_divida or 0 for c in clientes_resumo)
+    if busca:
+        termo = f"%{busca}%"
+        query = query.filter(
+            db.or_(
+                Cliente.nome.ilike(termo),
+                Cliente.telefone.ilike(termo),
+                Cliente.local.ilike(termo),
+            )
+        )
+
+    clientes_fiado = query.distinct().order_by(Cliente.nome.asc()).all()
+
+    for cliente in clientes_fiado:
+        total_divida = (
+            db.session.query(func.sum(Venda.total))
+            .filter(
+                Venda.cliente_id == cliente.id,
+                Venda.pago == False,
+                Venda.forma_pagamento == "fiado",
+            )
+            .scalar()
+            or 0
+        )
+        cliente.divida = total_divida
+
+    total_fiado = sum((cliente.divida or 0) for cliente in clientes_fiado)
+    quantidade_clientes = len(clientes_fiado)
 
     return render_template(
         "fiado.html",
-        vendas_fiado=vendas_fiado,
-        clientes_resumo=clientes_resumo,
-        total_geral_fiado=total_geral_fiado
+        clientes_fiado=clientes_fiado,
+        busca=busca,
+        total_fiado=total_fiado,
+        quantidade_clientes=quantidade_clientes,
     )
 
 
@@ -1303,8 +1328,13 @@ def venda_rapida():
                     if produto:
                         produto.estoque -= item["quantidade"]
 
+                produto_id_venda = item["produto_id"]
+                if not produto_id_venda:
+                    produto_diverso = get_or_create_produto_diverso()
+                    produto_id_venda = produto_diverso.id
+
                 venda = Venda(
-                    produto_id=item["produto_id"],
+                    produto_id=produto_id_venda,
                     cliente_id=cliente.id,
                     quantidade=item["quantidade"],
                     total=total,
@@ -1384,28 +1414,23 @@ def entrada_rapida():
     return render_template("entrada_rapida.html", produtos=produtos)
 
 @app.route("/cliente")
+@login_cliente_obrigatorio
 def cliente_dashboard():
-    if "cliente_id" not in session:
-        return redirect(url_for("login_cliente"))
-
     cliente_id = session["cliente_id"]
     cliente = Cliente.query.get_or_404(cliente_id)
 
-    # TODOS os pedidos do cliente
-    pedidos = Pedido.query.filter_by(
-        cliente_id=cliente_id
-    ).order_by(Pedido.id.desc()).all()
+    pedidos = (
+        Venda.query.filter_by(cliente_id=cliente_id)
+        .order_by(Venda.data.desc(), Venda.id.desc())
+        .all()
+    )
 
-    # FILTROS
     pedidos_abertos = [
         p for p in pedidos
-        if (p.status or "").lower() in ["aberto", "pendente", "fiado"]
+        if (not p.pago) or (p.forma_pagamento or "").lower() == "fiado" or (p.status_pedido or "") in ["aguardando_aprovacao", "aguardando_pagamento"]
     ]
 
-    historico = [
-        p for p in pedidos
-        if (p.status or "").lower() in ["entregue", "finalizado", "pago", "concluido"]
-    ]
+    historico = [p for p in pedidos if p not in pedidos_abertos]
 
     total_aberto = sum(float(p.total or 0) for p in pedidos_abertos)
 
@@ -1849,6 +1874,104 @@ def relatorio_fiado_local():
 
     return render_template("relatorio_fiado_local.html", dados=dados)
 
+
+
+@app.route("/historico_cliente/<int:cliente_id>")
+@login_obrigatorio
+def historico_cliente(cliente_id):
+    cliente = Cliente.query.get_or_404(cliente_id)
+    registros = (
+        db.session.query(Venda, Cliente, Produto)
+        .join(Cliente, Venda.cliente_id == Cliente.id)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Cliente.id == cliente_id)
+        .order_by(Venda.data.desc(), Venda.id.desc())
+        .all()
+    )
+
+    vendas = [
+        {
+            "id": venda.id,
+            "cliente": cli.nome,
+            "produto": prod.nome,
+            "quantidade": venda.quantidade,
+            "total": venda.total,
+            "pago": venda.pago,
+            "forma_pagamento": venda.forma_pagamento,
+        }
+        for venda, cli, prod in registros
+    ]
+
+    return render_template("historico.html", vendas=vendas, cliente=cliente)
+
+
+@app.route("/vendas_diretas")
+@login_obrigatorio
+def vendas_diretas():
+    data_inicial = request.args.get("data_inicial", "")
+    data_final = request.args.get("data_final", "")
+    cliente_id = request.args.get("cliente_id", "")
+    forma = request.args.get("forma", "")
+
+    query = (
+        db.session.query(Venda, Cliente, Produto)
+        .join(Cliente, Venda.cliente_id == Cliente.id)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.status_pedido != "aguardando_aprovacao")
+    )
+
+    if data_inicial:
+        query = query.filter(func.date(Venda.data) >= data_inicial)
+    if data_final:
+        query = query.filter(func.date(Venda.data) <= data_final)
+    if cliente_id:
+        query = query.filter(Venda.cliente_id == int(cliente_id))
+    if forma:
+        query = query.filter(Venda.forma_pagamento == forma)
+
+    vendas = query.order_by(Venda.data.desc(), Venda.id.desc()).all()
+    total_vendas = sum((v.total or 0) for v, _, _ in vendas)
+    total_recebido = sum((v.total or 0) for v, _, _ in vendas if v.pago)
+    total_pendente = total_vendas - total_recebido
+
+    filtros = {
+        "data_inicial": data_inicial,
+        "data_final": data_final,
+        "cliente_id": cliente_id,
+        "forma": forma,
+    }
+
+    return render_template(
+        "vendas_diretas.html",
+        vendas=vendas,
+        clientes=Cliente.query.order_by(Cliente.nome.asc()).all(),
+        total_vendas=total_vendas,
+        total_recebido=total_recebido,
+        total_pendente=total_pendente,
+        filtros=filtros,
+    )
+
+
+@app.route("/excluir_venda/<int:venda_id>")
+@login_obrigatorio
+def excluir_venda(venda_id):
+    return redirect(url_for("cancelar_venda", id=venda_id))
+
+
+@app.route("/cliente/notificacoes")
+@login_cliente_obrigatorio
+def cliente_notificacoes():
+    notificacoes = Notificacao.query.order_by(Notificacao.data.desc(), Notificacao.id.desc()).all()
+    return render_template("cliente_notificacoes.html", notificacoes=notificacoes)
+
+
+@app.route("/cliente/notificacao/lida/<int:id>")
+@login_cliente_obrigatorio
+def cliente_marcar_lida(id):
+    notificacao = Notificacao.query.get_or_404(id)
+    notificacao.lida = True
+    db.session.commit()
+    return redirect(url_for("cliente_notificacoes"))
 
 # ===============================
 # ❌ CANCELAMENTO DE VENDA
