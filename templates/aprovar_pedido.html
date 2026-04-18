@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="hero">
+    <div>
+        <h2>Aprovar Pedido</h2>
+        <p>Escolha a forma de pagamento para concluir a aprovação do pedido do cliente.</p>
+    </div>
+    <div class="hero-badge">Pedido #{{ venda.id }}</div>
+</div>
+
+<div class="card" style="max-width:720px; margin:0 auto;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:20px;">
+        <div class="stat-card">
+            <h3>Cliente</h3>
+            <p>{{ cliente.nome if cliente else 'Não informado' }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Produto</h3>
+            <p>{{ produto.nome }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Quantidade</h3>
+            <p>{{ venda.quantidade }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Total</h3>
+            <p>R$ {{ "%.2f"|format(venda.total) }}</p>
+        </div>
+    </div>
+
+    <form method="post">
+        <label for="forma_pagamento"><strong>Forma de pagamento</strong></label>
+        <select name="forma_pagamento" id="forma_pagamento" required style="margin-top:8px; margin-bottom:18px;">
+            <option value="">Selecione</option>
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">PIX</option>
+            <option value="fiado">Fiado</option>
+        </select>
+
+        <div style="background:#f8fafc; border:1px solid #e5e7eb; border-radius:14px; padding:14px; margin-bottom:18px;">
+            <p style="margin:0 0 8px 0;"><strong>Como funciona cada opção:</strong></p>
+            <ul style="margin:0; padding-left:18px; color:#475569;">
+                <li><strong>Dinheiro:</strong> baixa o estoque e lança o valor no caixa em dinheiro.</li>
+                <li><strong>PIX:</strong> aprova o pedido e deixa disponível a confirmação do recebimento PIX.</li>
+                <li><strong>Fiado:</strong> baixa o estoque e lança o valor em aberto para o cliente.</li>
+            </ul>
+        </div>
+
+        <div class="actions-inline">
+            <button type="submit" class="btn btn-success">Salvar aprovação</button>
+            <a href="{{ url_for('pedidos_clientes') }}" class="btn">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

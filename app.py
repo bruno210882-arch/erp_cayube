@@ -499,6 +499,7 @@ def editar_cliente(id):
         try:
             nome = request.form["nome"].strip()
             telefone = re.sub(r"\D", "", request.form.get("telefone", ""))
+            telefone = telefone if telefone else None
             local = request.form.get("local", "").strip()
 
             if telefone:
@@ -532,6 +533,7 @@ def add_cliente():
     try:
         nome = request.form["nome"].strip()
         telefone = re.sub(r"\D", "", request.form.get("telefone", ""))
+        telefone = telefone if telefone else None
         local = request.form.get("local", "").strip()
 
         if telefone:
@@ -1203,27 +1205,27 @@ def cliente_logout():
 
 
 @app.route("/cliente")
-@login_cliente_obrigatorio
 def cliente_dashboard():
+    if "cliente_id" not in session:
+        return redirect(url_for("login_cliente"))
+
     cliente_id = session["cliente_id"]
     cliente = Cliente.query.get_or_404(cliente_id)
 
-    pedidos = (
-        Venda.query
-        .filter_by(cliente_id=cliente_id)
-        .order_by(Venda.data.desc())
-        .all()
-    )
+    # TODOS os pedidos do cliente
+    pedidos = Pedido.query.filter_by(
+        cliente_id=cliente_id
+    ).order_by(Pedido.id.desc()).all()
 
+    # FILTROS
     pedidos_abertos = [
         p for p in pedidos
-        if (p.status_pedido or "").lower() in ["aguardando_aprovacao", "aprovado"]
-        and not p.pago
+        if (p.status or "").lower() in ["aberto", "pendente", "fiado"]
     ]
 
     historico = [
         p for p in pedidos
-        if p.pago or (p.status_pedido or "").lower() in ["entregue", "finalizado"]
+        if (p.status or "").lower() in ["entregue", "finalizado", "pago", "concluido"]
     ]
 
     total_aberto = sum(float(p.total or 0) for p in pedidos_abertos)
@@ -1504,6 +1506,55 @@ def confirmar_pix(venda_id):
 
     flash("Recebimento PIX confirmado com sucesso.", "success")
     return redirect(url_for("pedidos_clientes"))
+
+
+@app.route("/baixa_estoque", methods=["GET", "POST"])
+@login_obrigatorio
+def baixa_estoque():
+    produtos = Produto.query.all()
+
+    if request.method == "POST":
+        try:
+            produto_id = int(request.form.get("produto_id"))
+            quantidade = int(request.form.get("quantidade"))
+            motivo = request.form.get("motivo", "").strip()
+
+            produto = Produto.query.get_or_404(produto_id)
+
+            if quantidade <= 0:
+                flash("Quantidade inválida.", "danger")
+                return redirect(url_for("baixa_estoque"))
+
+            if (produto.estoque or 0) < quantidade:
+                flash("Estoque insuficiente para a baixa.", "danger")
+                return redirect(url_for("baixa_estoque"))
+
+            produto.estoque -= quantidade
+
+            movimento = MovimentoEstoque(
+                produto_id=produto.id,
+                tipo="saida",
+                quantidade=quantidade,
+                motivo=motivo or "Baixa sem venda"
+            )
+
+            db.session.add(movimento)
+            db.session.commit()
+
+            flash("Baixa de estoque registrada com sucesso.", "success")
+            return redirect(url_for("baixa_estoque"))
+
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao registrar baixa de estoque: {str(e)}"
+
+    movimentos = MovimentoEstoque.query.order_by(MovimentoEstoque.data.desc()).all()
+
+    return render_template(
+        "baixa_estoque.html",
+        produtos=produtos,
+        movimentos=movimentos
+    )
 
 
 @app.route("/resetar_banco")
