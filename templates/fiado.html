@@ -1,55 +1,18 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block conteudo %}
 
-<h2>💳 Vendas no Fiado</h2>
+<h2>Fiado</h2>
 
-<div class="card" style="margin-bottom:20px;">
-    <h3>Total Geral em Aberto</h3>
-    <p>R$ {{ "%.2f"|format(total_geral_fiado or 0) }}</p>
+<input type="text" id="busca" placeholder="Buscar cliente ou produto..." class="input-busca">
+
+{% for venda, cliente, produto in vendas %}
+<div class="linha-busca card">
+    <strong>{{ cliente.nome }}</strong><br>
+    {{ produto.nome }}<br>
+    R$ {{ "%.2f"|format(venda.total) }}
 </div>
+{% endfor %}
 
-<h3>Resumo por Cliente</h3>
-<table>
-    <tr>
-        <th>Cliente</th>
-        <th>Total em Aberto</th>
-    </tr>
-    {% for cliente in clientes_resumo %}
-    <tr>
-        <td>{{ cliente.nome }}</td>
-        <td>R$ {{ "%.2f"|format(cliente.total_divida or 0) }}</td>
-    </tr>
-    {% endfor %}
-</table>
-
-<br>
-
-<h3>Itens Vendidos no Fiado</h3>
-<table>
-    <tr>
-        <th>Cliente</th>
-        <th>Produto</th>
-        <th>Quantidade</th>
-        <th>Valor em Aberto</th>
-        <th>Receber</th>
-    </tr>
-    {% for venda, cliente, produto in vendas_fiado %}
-    <tr>
-        <td>{{ cliente.nome }}</td>
-        <td>{{ produto.nome }}</td>
-        <td>{{ venda.quantidade }}</td>
-        <td>R$ {{ "%.2f"|format(venda.total or 0) }}</td>
-        <td>
-            <form method="POST" action="{{ url_for('receber_venda', venda_id=venda.id) }}">
-                <select name="forma" required>
-                    <option value="dinheiro">Dinheiro</option>
-                    <option value="transferencia">Transferência</option>
-                </select>
-                <button type="submit">Baixar</button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
+{% include "busca_script.html" %}
 
 {% endblock %}

@@ -1,67 +1,16 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block conteudo %}
 
-<h2>📥 Entrada de Estoque</h2>
+<h2>Estoque</h2>
 
-<div style="display:flex; gap:20px; margin-bottom:20px;">
-    <div class="card">
-        <h3>Saldo Dinheiro</h3>
-        <p>R$ {{ "%.2f"|format(saldo.dinheiro or 0) }}</p>
-    </div>
+<input type="text" id="busca" placeholder="Buscar produto..." class="input-busca">
 
-    <div class="card">
-        <h3>Saldo Conta</h3>
-        <p>R$ {{ "%.2f"|format(saldo.conta or 0) }}</p>
-    </div>
+{% for p in produtos %}
+<div class="linha-busca card">
+    {{ p.nome }} - {{ p.estoque }} unidades
 </div>
+{% endfor %}
 
-<form method="POST">
-    <label>Produto</label>
-    <select name="produto" required>
-        {% for p in produtos %}
-        <option value="{{ p.id }}">
-            {{ p.nome }} - Estoque atual: {{ p.estoque }}
-        </option>
-        {% endfor %}
-    </select>
-
-    <label>Quantidade comprada</label>
-    <input type="number" name="quantidade" min="1" required>
-
-    <label>Valor total da compra</label>
-    <input type="number" step="0.01" name="valor_compra" min="0.01" required>
-
-    <label>Origem do pagamento</label>
-    <select name="origem" required>
-        <option value="dinheiro">Caixa / Dinheiro</option>
-        <option value="conta">Conta</option>
-        <option value="capital_dinheiro">Injeção de capital no Dinheiro</option>
-        <option value="capital_conta">Injeção de capital na Conta</option>
-    </select>
-
-    <button type="submit">Registrar Compra</button>
-</form>
-
-{% if movimentos %}
-<h3 style="margin-top:30px;">Últimas entradas</h3>
-<table>
-    <tr>
-        <th>Data</th>
-        <th>Produto ID</th>
-        <th>Tipo</th>
-        <th>Quantidade</th>
-        <th>Motivo</th>
-    </tr>
-    {% for m in movimentos %}
-    <tr>
-        <td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td>
-        <td>{{ m.produto_id }}</td>
-        <td>{{ m.tipo }}</td>
-        <td>{{ m.quantidade }}</td>
-        <td>{{ m.motivo }}</td>
-    </tr>
-    {% endfor %}
-</table>
-{% endif %}
+{% include "busca_script.html" %}
 
 {% endblock %}
