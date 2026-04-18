@@ -1950,50 +1950,6 @@ def cliente_marcar_lida(id):
     db.session.commit()
     return redirect(url_for("cliente_dashboard"))
 
-@app.route("/vendas_diretas")
-@login_obrigatorio
-def vendas_diretas():
-    data_inicial = (request.args.get("data_inicial") or "").strip()
-    data_final = (request.args.get("data_final") or "").strip()
-    cliente_id = (request.args.get("cliente_id") or "").strip()
-    forma = (request.args.get("forma") or "").strip().lower()
-
-    query = (
-        db.session.query(Venda, Cliente, Produto)
-        .join(Cliente, Venda.cliente_id == Cliente.id)
-        .join(Produto, Venda.produto_id == Produto.id)
-        .filter(Venda.status_pedido != "aguardando_aprovacao")
-    )
-
-    if data_inicial:
-        query = query.filter(func.date(Venda.data) >= data_inicial)
-    if data_final:
-        query = query.filter(func.date(Venda.data) <= data_final)
-    if cliente_id:
-        query = query.filter(Venda.cliente_id == int(cliente_id))
-    if forma:
-        query = query.filter(func.lower(Venda.forma_pagamento) == forma)
-
-    vendas = query.order_by(Venda.data.desc(), Venda.id.desc()).all()
-    total_vendas = sum((v.total or 0) for v, _, _ in vendas)
-    total_recebido = sum((v.total or 0) for v, _, _ in vendas if v.pago)
-    total_pendente = sum((v.total or 0) for v, _, _ in vendas if not v.pago)
-
-    return render_template(
-        "vendas_diretas.html",
-        vendas=vendas,
-        clientes=Cliente.query.order_by(Cliente.nome.asc()).all(),
-        filtros={
-            "data_inicial": data_inicial,
-            "data_final": data_final,
-            "cliente_id": cliente_id,
-            "forma": forma,
-        },
-        total_vendas=total_vendas,
-        total_recebido=total_recebido,
-        total_pendente=total_pendente,
-    )
-
 
 @app.route("/excluir_venda/<int:venda_id>")
 @login_obrigatorio
