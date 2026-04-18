@@ -1321,17 +1321,18 @@ def venda_rapida():
                 if item["produto_id"]:
                     produto = Produto.query.get(item["produto_id"])
                     if produto:
-                        produto.estoque -= item["quantidade"]
-
-                venda = Venda(
-                    produto_id=item["produto_id"],
-                    cliente_id=cliente.id,
-                    quantidade=item["quantidade"],
-                    total=total,
-                    forma_pagamento=forma,
-                    pago=(forma != "fiado")
-                )
-
+                        produto.estoque -= item["quantidade"	
+		venda = Venda(
+   		 produto_id=item["produto_id"],
+   		 cliente_id=cliente.id,
+   		 quantidade=item["quantidade"],
+    		total=total,
+    		forma_pagamento=forma,
+    		pago=(forma != "fiado"),
+   		 status_pedido="venda_direta",
+    		status_pix="pago" if forma in ["dinheiro", "transferencia", "pix"] else "pendente"
+)
+            
                 db.session.add(venda)
                 total_geral += total
 
@@ -1640,12 +1641,12 @@ def pedidos_clientes():
         db.session.query(Venda, Cliente, Produto)
         .join(Cliente, Venda.cliente_id == Cliente.id)
         .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.status_pedido == "aguardando_aprovacao")
         .order_by(Venda.data.desc())
         .all()
     )
 
     return render_template("pedidos_clientes.html", pedidos=pedidos)
-
 
 @app.route("/aprovar_pedido/<int:venda_id>")
 @login_obrigatorio
@@ -1900,8 +1901,12 @@ def vendas_diretas():
     cliente_id = (request.args.get("cliente_id") or "").strip()
     forma = (request.args.get("forma") or "").strip().lower()
 
-    query = db.session.query(Venda, Cliente, Produto).join(Cliente, Venda.cliente_id == Cliente.id).join(Produto, Venda.produto_id == Produto.id)
-    query = query.filter(Venda.status_pedido != "aguardando_aprovacao")
+    query = (
+        db.session.query(Venda, Cliente, Produto)
+        .join(Cliente, Venda.cliente_id == Cliente.id)
+        .join(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.status_pedido == "venda_direta")
+    )
 
     if data_inicial:
         query = query.filter(func.date(Venda.data) >= data_inicial)
@@ -1934,7 +1939,6 @@ def vendas_diretas():
         total_recebido=total_recebido,
         total_pendente=total_pendente,
     )
-
 
 @app.route("/excluir_venda/<int:venda_id>")
 @login_obrigatorio
