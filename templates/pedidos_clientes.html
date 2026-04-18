@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% block titulo %}Pedidos dos Clientes{% endblock %}
 {% block conteudo %}
 <div class="hero">
     <div>
         <h2>Pedidos dos Clientes</h2>
-        <p>Centralize aprovações, recusas e confirmações de PIX em um painel único.</p>
+        <p>Nesta tela ficam apenas os pedidos feitos pelos clientes na área do cliente, aguardando aprovação, aprovados ou recusados.</p>
     </div>
     <div class="hero-badge">Gestão de pedidos</div>
 </div>
@@ -17,14 +18,15 @@
             <td><strong>{{ cliente.nome }}</strong></td>
             <td>{{ produto.nome }}</td>
             <td>{{ venda.quantidade }}</td>
-            <td>R$ {{ "%.2f"|format(venda.total) }}</td>
+            <td>R$ {{ "%.2f"|format(venda.total or 0) }}</td>
             <td>
                 {% if venda.status_pedido == 'aguardando_aprovacao' %}<span class="pill warning">Aguardando</span>
                 {% elif venda.status_pedido == 'aprovado' %}<span class="pill success">Aprovado</span>
+                {% elif venda.status_pedido == 'recusado' %}<span class="pill danger">Recusado</span>
                 {% else %}<span class="pill">{{ venda.status_pedido }}</span>{% endif %}
             </td>
             <td>{% if venda.status_pix == 'pago' %}<span class="pill success">Pago</span>{% else %}<span class="pill warning">{{ venda.status_pix }}</span>{% endif %}</td>
-            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') if venda.data else '' }}</td>
             <td>
                 <div class="actions-inline">
                     {% if venda.status_pedido == "aguardando_aprovacao" %}
@@ -40,7 +42,7 @@
         {% endfor %}
     </table>
     {% else %}
-    <div class="empty-state">Nenhum pedido encontrado.</div>
+    <div class="empty-state">Nenhum pedido de cliente encontrado.</div>
     {% endif %}
 </div>
 {% endblock %}

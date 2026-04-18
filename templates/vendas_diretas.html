@@ -4,7 +4,7 @@
 <div class="hero">
     <div>
         <h2>Vendas Diretas</h2>
-        <p>Histórico com filtros por período, cliente e forma de pagamento, com opção de estorno.</p>
+        <p>Aqui aparecem somente as vendas feitas no ERP gerencial. Pedidos da área do cliente ficam na tela de pedidos.</p>
     </div>
     <div class="hero-badge">Gestão completa de vendas</div>
 </div>
@@ -48,6 +48,7 @@
             <select name="forma">
                 <option value="">Todas</option>
                 <option value="dinheiro" {% if filtros.forma == 'dinheiro' %}selected{% endif %}>Dinheiro</option>
+                <option value="transferencia" {% if filtros.forma == 'transferencia' %}selected{% endif %}>Transferência</option>
                 <option value="pix" {% if filtros.forma == 'pix' %}selected{% endif %}>PIX</option>
                 <option value="fiado" {% if filtros.forma == 'fiado' %}selected{% endif %}>Fiado</option>
             </select>
@@ -62,8 +63,8 @@
 <div class="card">
     <div class="toolbar">
         <div>
-            <h3 class="panel-title">Histórico de vendas</h3>
-            <div class="sub">Diretas, separadas dos pedidos do cliente.</div>
+            <h3 class="panel-title">Histórico de vendas diretas</h3>
+            <div class="sub">Separadas dos pedidos feitos pelos clientes na área do cliente.</div>
         </div>
     </div>
     <table>
@@ -95,7 +96,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="8">Nenhuma venda encontrada para os filtros selecionados.</td>
+                <td colspan="8">Nenhuma venda direta encontrada para os filtros selecionados.</td>
             </tr>
             {% endfor %}
         </tbody>
