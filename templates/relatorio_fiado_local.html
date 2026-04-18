@@ -1,1 +1,10 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
 <h2>Fiado por Local</h2>
+
+{% for local, total in dados %}
+<p>{{ local }} - R$ {{ "%.2f"|format(total) }}</p>
+{% endfor %}
+
+{% endblock %}

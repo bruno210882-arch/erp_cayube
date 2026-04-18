@@ -5,6 +5,7 @@ import base64
 from datetime import datetime, date
 from functools import wraps
 from collections import defaultdict
+from sqlalchemy import func, desc
 
 import qrcode
 from flask import (
@@ -1597,7 +1598,107 @@ def marcar_lida(id):
     notificacao.lida = True
     db.session.commit()
     return redirect(url_for("notificacoes"))
+# ===============================
+# 💰 PAINEL FINANCEIRO
+# ===============================
+@app.route("/painel_financeiro")
+@login_obrigatorio
+def painel_financeiro():
+    total_fiado = db.session.query(func.sum(Venda.total)).filter(Venda.pago == False).scalar() or 0
 
+    top_devedores = db.session.query(
+        Cliente.nome,
+        func.sum(Venda.total).label("total")
+    ).join(Venda).filter(
+        Venda.pago == False
+    ).group_by(Cliente.nome).order_by(desc("total")).limit(5).all()
+
+    antigos = Venda.query.filter(
+        Venda.pago == False
+    ).order_by(Venda.data.asc()).limit(5).all()
+
+    return render_template(
+        "painel_financeiro.html",
+        total_fiado=total_fiado,
+        top_devedores=top_devedores,
+        antigos=antigos
+    )
+
+
+# ===============================
+# 🏆 RANKING CLIENTES
+# ===============================
+@app.route("/ranking_clientes")
+@login_obrigatorio
+def ranking_clientes():
+    ranking = db.session.query(
+        Cliente.nome,
+        func.sum(Venda.total).label("total")
+    ).join(Venda).group_by(Cliente.nome).order_by(desc("total")).limit(10).all()
+
+    return render_template("ranking_clientes.html", ranking=ranking)
+
+
+# ===============================
+# 📊 FIADO POR CLIENTE
+# ===============================
+@app.route("/relatorio_fiado_cliente")
+@login_obrigatorio
+def relatorio_fiado_cliente():
+    dados = db.session.query(
+        Cliente.nome,
+        func.sum(Venda.total)
+    ).join(Venda).filter(
+        Venda.pago == False
+    ).group_by(Cliente.nome).all()
+
+    return render_template("relatorio_fiado_cliente.html", dados=dados)
+
+
+# ===============================
+# 📍 FIADO POR LOCAL
+# ===============================
+@app.route("/relatorio_fiado_local")
+@login_obrigatorio
+def relatorio_fiado_local():
+    dados = db.session.query(
+        Cliente.local,
+        func.sum(Venda.total)
+    ).join(Venda).filter(
+        Venda.pago == False
+    ).group_by(Cliente.local).all()
+
+    return render_template("relatorio_fiado_local.html", dados=dados)
+
+
+# ===============================
+# ❌ CANCELAMENTO DE VENDA
+# ===============================
+@app.route("/cancelar_venda/<int:id>")
+@login_obrigatorio
+def cancelar_venda(id):
+    venda = Venda.query.get_or_404(id)
+    produto = Produto.query.get(venda.produto_id)
+    cliente = Cliente.query.get(venda.cliente_id)
+    saldo = get_saldo()
+
+    # devolve estoque
+    produto.estoque += venda.quantidade
+
+    # ajusta financeiro
+    if venda.pago:
+        if venda.forma_pagamento == "dinheiro":
+            saldo.dinheiro -= venda.total
+        else:
+            saldo.conta -= venda.total
+    else:
+        cliente.divida -= venda.total
+
+    db.session.delete(venda)
+    db.session.commit()
+
+    flash("Venda cancelada!", "success")
+    return redirect(request.referrer)
 
 if __name__ == "__main__":
     app.run(debug=True)
