@@ -4,7 +4,7 @@
 <div class="hero">
     <div>
         <h2>Vendas Diretas</h2>
-        <p>Histórico com filtros por período, cliente e forma de pagamento.</p>
+        <p>Histórico com filtros por período, cliente e forma de pagamento, com opção de estorno.</p>
     </div>
     <div class="hero-badge">Gestão completa de vendas</div>
 </div>
@@ -90,7 +90,7 @@
                 <td>{{ (venda.forma_pagamento or '-').capitalize() }}</td>
                 <td>{{ 'Recebido' if venda.pago else 'Pendente' }}</td>
                 <td>
-                    <a href="{{ url_for('excluir_venda', venda_id=venda.id) }}" onclick="return confirm('Tem certeza que deseja excluir esta venda?');">Excluir</a>
+                    <a href="{{ url_for('excluir_venda', venda_id=venda.id) }}" onclick="return confirm('Tem certeza que deseja estornar esta venda? O estoque e o financeiro serão ajustados.');">Estornar</a>
                 </td>
             </tr>
             {% else %}

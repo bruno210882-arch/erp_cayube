@@ -1,21 +1,88 @@
 {% extends "base.html" %}
+{% block titulo %}Venda{% endblock %}
 {% block conteudo %}
-
-<h2>Venda</h2>
-
-<input type="text" id="busca" placeholder="Buscar produto..." class="input-busca">
-
-<div class="grid">
-
-{% for p in produtos %}
-<div class="linha-busca card">
-    <strong>{{ p.nome }}</strong><br>
-    R$ {{ "%.2f"|format(p.preco) }}
+<div class="hero">
+    <div>
+        <h2>Registrar venda</h2>
+        <p>Venda administrativa com seleção de cliente, produto, quantidade e forma de pagamento.</p>
+    </div>
+    <div class="actions-inline">
+        <a class="btn btn-secondary" href="{{ url_for('vendas_diretas') }}">Ver vendas diretas</a>
+        <a class="btn btn-secondary" href="{{ url_for('venda_rapida') }}">Venda rápida</a>
+    </div>
 </div>
-{% endfor %}
 
+<div class="card">
+    <form method="POST" class="form-grid">
+        <div class="field">
+            <label>Produto</label>
+            <select name="produto" required>
+                <option value="">Selecione</option>
+                {% for p in produtos %}
+                <option value="{{ p.id }}">{{ p.nome }} — R$ {{ "%.2f"|format(p.preco or 0) }} — Estoque: {{ p.estoque or 0 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label>Cliente</label>
+            <select name="cliente" required>
+                <option value="">Selecione</option>
+                {% for c in clientes %}
+                <option value="{{ c.id }}">{{ c.nome }}{% if c.local %} — {{ c.local }}{% endif %}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label>Quantidade</label>
+            <input type="number" min="1" name="quantidade" value="1" required>
+        </div>
+        <div class="field">
+            <label>Forma de pagamento</label>
+            <select name="forma" required>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">PIX</option>
+                <option value="fiado">Fiado</option>
+            </select>
+        </div>
+        <div class="field" style="display:flex;align-items:end;">
+            <button type="submit">Registrar venda</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="toolbar">
+        <div>
+            <h3 class="panel-title">Produtos disponíveis</h3>
+            <div class="sub">Use a busca para localizar rapidamente um item antes de vender.</div>
+        </div>
+    </div>
+
+    <input type="text" id="busca" placeholder="Buscar produto..." style="margin-bottom:16px;">
+
+    <table>
+        <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Preço</th>
+                <th>Estoque</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in produtos %}
+            <tr class="linha-busca">
+                <td><strong>{{ p.nome }}</strong></td>
+                <td>R$ {{ "%.2f"|format(p.preco or 0) }}</td>
+                <td>{{ p.estoque or 0 }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3">Nenhum produto cadastrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
 {% include "busca_script.html" %}
-
 {% endblock %}
