@@ -95,8 +95,8 @@ class Produto(db.Model):
 
 class Venda(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"), nullable=False)
-    cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id"), nullable=False)
+    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"), nullable=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id"), nullable=True)
     quantidade = db.Column(db.Integer, nullable=False)
     total = db.Column(db.Float, nullable=False)
     pago = db.Column(db.Boolean, default=False)
@@ -123,7 +123,7 @@ class Movimento(db.Model):
 
 class MovimentoEstoque(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"), nullable=False)
+    produto_id = db.Column(db.Integer, db.ForeignKey("produto.id"), nullable=True)
     tipo = db.Column(db.String(20), nullable=False)
     quantidade = db.Column(db.Integer, nullable=False)
     motivo = db.Column(db.String(100))
@@ -1934,21 +1934,6 @@ def vendas_diretas():
         total_recebido=total_recebido,
         total_pendente=total_pendente,
     )
-
-
-@app.route("/excluir_venda/<int:venda_id>")
-@login_obrigatorio
-def excluir_venda(venda_id):
-    return cancelar_venda(venda_id)
-
-
-@app.route("/cliente/notificacao/lida/<int:id>")
-@login_cliente_obrigatorio
-def cliente_marcar_lida(id):
-    notificacao = Notificacao.query.get_or_404(id)
-    notificacao.lida = True
-    db.session.commit()
-    return redirect(url_for("cliente_dashboard"))
 
 
 @app.route("/excluir_venda/<int:venda_id>")
