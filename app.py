@@ -19,7 +19,7 @@ from sqlalchemy import func, text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = "cayube_erp_chave_secreta_2026"
+app.secret_key = os.getenv("SECRET_KEY", "dev-change-this-secret")
 
 PIX_CHAVE = "35548112899"
 PIX_NOME = "BRUNA RAFAELA SOARES SILVA"
@@ -35,6 +35,9 @@ else:
 
 app.config["SQLALCHEMY_DATABASE_URI"] = uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("COOKIE_SECURE", "0") == "1"
 
 db = SQLAlchemy(app)
 
@@ -44,6 +47,18 @@ def login_obrigatorio(f):
     def decorated_function(*args, **kwargs):
         if "usuario_id" not in session:
             return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def admin_obrigatorio(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "usuario_id" not in session:
+            return redirect(url_for("login"))
+        if session.get("usuario_nivel") != "admin":
+            flash("Acesso restrito ao administrador.", "danger")
+            return redirect(url_for("index"))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -352,12 +367,12 @@ def relatorio_produto_local_dia():
 @app.route("/manifest-cliente.webmanifest")
 def manifest_cliente():
     return jsonify({
-        "id": "/cliente/",
+        "id": "/cliente/login",
         "name": "Cayube Área do Cliente",
         "short_name": "Cliente Cayube",
         "description": "Portal do cliente instalável",
         "start_url": "/cliente/login",
-        "scope": "/cliente/",
+        "scope": "/cliente",
         "display": "standalone",
         "background_color": "#f4f6f9",
         "theme_color": "#1e1e2f",
@@ -456,12 +471,14 @@ self.addEventListener("fetch", event => {
     return app.response_class(js, mimetype="application/javascript")
 
 @app.route("/criar_tabelas")
+@admin_obrigatorio
 def criar_tabelas():
     db.create_all()
     return "Tabelas criadas com sucesso!"
 
 
 @app.route("/atualizar_banco")
+@admin_obrigatorio
 def atualizar_banco():
     try:
         db.create_all()
@@ -481,6 +498,7 @@ def atualizar_banco():
 
 
 @app.route("/resetar_senha_clientes")
+@admin_obrigatorio
 def resetar_senha_clientes():
     clientes = Cliente.query.all()
     for c in clientes:
@@ -493,6 +511,7 @@ def resetar_senha_clientes():
 
 
 @app.route("/ativar_clientes")
+@admin_obrigatorio
 def ativar_clientes():
     clientes = Cliente.query.all()
     for c in clientes:
@@ -506,6 +525,7 @@ def ativar_clientes():
 
 
 @app.route("/corrigir_telefones_clientes")
+@admin_obrigatorio
 def corrigir_telefones_clientes():
     clientes = Cliente.query.all()
     alterados = 0
@@ -522,6 +542,7 @@ def corrigir_telefones_clientes():
 
 
 @app.route("/debug_clientes")
+@admin_obrigatorio
 def debug_clientes():
     dados = []
     for c in Cliente.query.order_by(Cliente.id.asc()).all():
@@ -541,6 +562,10 @@ def debug_clientes():
 
 @app.route("/criar_admin")
 def criar_admin():
+    total_usuarios = Usuario.query.count()
+    if total_usuarios > 0 and session.get("usuario_nivel") != "admin":
+        return "Acesso negado", 403
+
     if Usuario.query.filter_by(usuario="admin").first():
         return "Admin já existe"
 
@@ -1359,7 +1384,7 @@ def fechamento_caixa():
 
 
 @app.route("/usuarios", methods=["GET", "POST"])
-@login_obrigatorio
+@admin_obrigatorio
 def usuarios():
     if session.get("usuario_nivel") != "admin":
         return "Acesso negado"
@@ -1385,7 +1410,7 @@ def usuarios():
 
 
 @app.route("/alterar_senha/<int:id>", methods=["POST"])
-@login_obrigatorio
+@admin_obrigatorio
 def alterar_senha(id):
     if session.get("usuario_nivel") != "admin":
         return "Acesso negado"
@@ -1399,7 +1424,7 @@ def alterar_senha(id):
 
 
 @app.route("/excluir_usuario/<int:id>")
-@login_obrigatorio
+@admin_obrigatorio
 def excluir_usuario(id):
     if session.get("usuario_nivel") != "admin":
         return "Acesso negado"
@@ -1413,7 +1438,7 @@ def excluir_usuario(id):
 
 
 @app.route("/backup")
-@login_obrigatorio
+@admin_obrigatorio
 def backup():
     try:
         current_uri = os.getenv("DATABASE_URL")
@@ -1439,18 +1464,20 @@ def login_cliente():
         telefone_input = re.sub(r"\D", "", request.form.get("telefone", ""))
         senha = request.form.get("senha", "").strip()
 
-        # pega TODOS os clientes
-        clientes = Cliente.query.all()
+        if not telefone_input or not senha:
+            flash("Informe telefone e senha.", "danger")
+            return render_template("cliente_login.html")
 
-        cliente_encontrado = None
+        cliente_encontrado = Cliente.query.filter_by(telefone=telefone_input).first()
 
-        for c in clientes:
-            tel = re.sub(r"\D", "", c.telefone or "")
-
-            # comparação flexível
-            if tel == telefone_input or tel.endswith(telefone_input[-8:]):
-                cliente_encontrado = c
-                break
+        if not cliente_encontrado and len(telefone_input) >= 8:
+            clientes = Cliente.query.filter(Cliente.telefone.isnot(None)).all()
+            sufixo = telefone_input[-8:]
+            for c in clientes:
+                tel = re.sub(r"\D", "", c.telefone or "")
+                if tel.endswith(sufixo):
+                    cliente_encontrado = c
+                    break
 
         if not cliente_encontrado:
             flash("Telefone não encontrado.", "danger")
@@ -1464,7 +1491,6 @@ def login_cliente():
             flash("Senha inválida.", "danger")
             return render_template("cliente_login.html")
 
-        # LOGIN OK
         session["cliente_id"] = cliente_encontrado.id
         session["cliente_nome"] = cliente_encontrado.nome
 
@@ -1692,7 +1718,6 @@ def entrada_rapida():
 
 @app.route("/cliente")
 @login_cliente_obrigatorio
-@login_cliente_obrigatorio
 def cliente_dashboard():
 
     cliente_id = session["cliente_id"]
@@ -1842,7 +1867,7 @@ def cliente_pix():
 
     pedido = (
         Venda.query
-        .filter_by(cliente_id=cliente.id, status_pedido="venda_direta", status_pix="pendente")
+        .filter_by(cliente_id=cliente.id, status_pedido="aprovado", status_pix="pendente")
         .order_by(Venda.data.desc())
         .first()
     )
@@ -1913,7 +1938,7 @@ def pedidos_clientes():
     pedidos = (
         db.session.query(Venda, Cliente, Produto)
         .join(Cliente, Venda.cliente_id == Cliente.id)
-        .join(Produto, Venda.produto_id == Produto.id)
+        .outerjoin(Produto, Venda.produto_id == Produto.id)
         .filter(Venda.status_pedido == "aguardando_aprovacao")
         .order_by(Venda.data.desc())
         .all()
@@ -2052,7 +2077,7 @@ def baixa_estoque():
 
 
 @app.route("/resetar_banco")
-@login_obrigatorio
+@admin_obrigatorio
 def resetar_banco():
     db.drop_all()
     db.create_all()
@@ -2177,7 +2202,7 @@ def vendas_diretas():
     query = (
         db.session.query(Venda, Cliente, Produto)
         .join(Cliente, Venda.cliente_id == Cliente.id)
-        .join(Produto, Venda.produto_id == Produto.id)
+        .outerjoin(Produto, Venda.produto_id == Produto.id)
         .filter(Venda.status_pedido == "venda_direta")
     )
 
