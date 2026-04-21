@@ -11,7 +11,7 @@
         *{box-sizing:border-box} body{margin:0;min-height:100vh;font-family:Arial,sans-serif;background:radial-gradient(circle at top,#bfdbfe 0,#eaf2ff 32%,#f4f7fb 62%,#eef3f8 100%);display:flex;align-items:center;justify-content:center;padding:24px;color:#18212f}
         .wrap{width:100%;max-width:1120px;display:grid;grid-template-columns:1.05fr .95fr;gap:24px;align-items:center}.hero h1{font-size:42px;margin:0 0 12px}.hero p{font-size:18px;line-height:1.6;color:#475467}.list{display:grid;gap:10px;margin-top:18px}.item{background:rgba(255,255,255,.74);border:1px solid rgba(148,163,184,.22);padding:12px 14px;border-radius:18px;font-weight:700}
         .box{background:rgba(255,255,255,.9);border:1px solid rgba(226,232,240,.9);box-shadow:0 30px 60px rgba(15,23,42,.12);backdrop-filter:blur(10px);padding:34px;border-radius:28px}.logo-area{text-align:center;margin-bottom:16px}.logo-area img{width:min(100%,320px);max-height:180px;object-fit:contain;filter:drop-shadow(0 20px 30px rgba(8,145,178,.15))}
-        h2{text-align:center;font-size:30px;margin:6px 0 8px}.subtitle{text-align:center;color:#667085;margin:0 0 22px}.mensagem{padding:12px 14px;border-radius:14px;margin-bottom:12px;font-size:14px;font-weight:700}.mensagem.success{background:#ecfdf3;color:#166534;border:1px solid #bbf7d0}.mensagem.danger{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}.field{margin-bottom:14px}.field label{display:block;font-weight:700;margin-bottom:8px}.field input{width:100%;padding:14px 15px;border:1px solid #d5deec;border-radius:16px;font-size:15px}.btn{width:100%;padding:14px 18px;border:none;border-radius:16px;font-weight:800;font-size:15px;cursor:pointer;color:#fff;background:linear-gradient(135deg,#1d4ed8,#0891b2)}
+        h2{text-align:center;font-size:30px;margin:6px 0 8px}.subtitle{text-align:center;color:#667085;margin:0 0 22px}.mensagem{padding:12px 14px;border-radius:14px;margin-bottom:12px;font-size:14px;font-weight:700}.mensagem.success{background:#ecfdf3;color:#166534;border:1px solid #bbf7d0}.mensagem.danger{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}.field{margin-bottom:14px}.field label{display:block;font-weight:700;margin-bottom:8px}.field input{width:100%;padding:14px 15px;border:1px solid #d5deec;border-radius:16px;font-size:15px}.btn{width:100%;padding:14px 18px;border:none;border-radius:16px;font-weight:800;font-size:15px;cursor:pointer;color:#fff;background:linear-gradient(135deg,#1d4ed8,#0891b2)} .btn-install{margin-top:12px;background:linear-gradient(135deg,#166534,#22c55e)}
         @media (max-width:920px){.wrap{grid-template-columns:1fr}.hero h1{font-size:34px}.box{padding:26px}}
     </style>
 </head>
@@ -41,6 +41,7 @@
             <div class="field"><label>Telefone</label><input type="text" id="telefone" name="telefone" placeholder="(11) 99999-9999" maxlength="15" required></div>
             <div class="field"><label>Senha</label><input type="password" name="senha" placeholder="Sua senha" required></div>
             <button type="submit" class="btn">Entrar</button>
+            <button id="btnInstalarCliente" type="button" class="btn btn-install" style="display:none;">📲 Instalar App</button>
         </form>
         <script>
         (function(){
@@ -55,6 +56,39 @@
                 }
             });
         })();
+
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("/cliente-sw.js", { scope: "/cliente/" });
+            });
+        }
+
+        let deferredPrompt = null;
+        const installBtn = document.getElementById("btnInstalarCliente");
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        if (isStandalone && installBtn) installBtn.style.display = "none";
+
+        window.addEventListener("beforeinstallprompt", (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (installBtn) installBtn.style.display = "block";
+        });
+
+        window.addEventListener("appinstalled", () => {
+            deferredPrompt = null;
+            if (installBtn) installBtn.style.display = "none";
+        });
+
+        installBtn?.addEventListener("click", async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                installBtn.style.display = "none";
+            } else {
+                alert("Abra no Chrome/Edge e use 'Adicionar à tela inicial' se o botão ainda não aparecer.");
+            }
+        });
         </script>
     </div>
 </div>

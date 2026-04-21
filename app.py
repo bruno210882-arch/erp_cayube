@@ -352,12 +352,12 @@ def relatorio_produto_local_dia():
 @app.route("/manifest-cliente.webmanifest")
 def manifest_cliente():
     return jsonify({
-        "id": "/cliente/login",
+        "id": "/cliente/",
         "name": "Cayube Área do Cliente",
         "short_name": "Cliente Cayube",
         "description": "Portal do cliente instalável",
         "start_url": "/cliente/login",
-        "scope": "/cliente",
+        "scope": "/cliente/",
         "display": "standalone",
         "background_color": "#f4f6f9",
         "theme_color": "#1e1e2f",
