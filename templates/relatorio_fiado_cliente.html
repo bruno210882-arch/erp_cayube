@@ -1,1 +1,5 @@
-<h2>Fiado por Cliente</h2>
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="hero"><div><h2>Fiado por Cliente</h2><p>Clientes ordenados do maior valor em aberto para o menor.</p></div><div class="hero-badge">Inadimplência por cliente</div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Resumo do fiado</h3><div class="sub">Visão consolidada das pendências por cliente.</div></div></div>{% if dados %}<div class="table-wrap"><table><thead><tr><th>Posição</th><th>Cliente</th><th>Total em aberto</th></tr></thead><tbody>{% for nome, total in dados %}<tr><td>#{{ loop.index }}</td><td>{{ nome }}</td><td>R$ {{ "%.2f"|format(total or 0) }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state">Nenhum fiado encontrado por cliente.</div>{% endif %}</div>
+{% endblock %}

@@ -1,55 +1,8 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block conteudo %}
-
-<h2>💳 Vendas no Fiado</h2>
-
-<div class="card" style="margin-bottom:20px;">
-    <h3>Total Geral em Aberto</h3>
-    <p>R$ {{ "%.2f"|format(total_geral_fiado or 0) }}</p>
-</div>
-
-<h3>Resumo por Cliente</h3>
-<table>
-    <tr>
-        <th>Cliente</th>
-        <th>Total em Aberto</th>
-    </tr>
-    {% for cliente in clientes_resumo %}
-    <tr>
-        <td>{{ cliente.nome }}</td>
-        <td>R$ {{ "%.2f"|format(cliente.total_divida or 0) }}</td>
-    </tr>
-    {% endfor %}
-</table>
-
-<br>
-
-<h3>Itens Vendidos no Fiado</h3>
-<table>
-    <tr>
-        <th>Cliente</th>
-        <th>Produto</th>
-        <th>Quantidade</th>
-        <th>Valor em Aberto</th>
-        <th>Receber</th>
-    </tr>
-    {% for venda, cliente, produto in vendas_fiado %}
-    <tr>
-        <td>{{ cliente.nome }}</td>
-        <td>{{ produto.nome }}</td>
-        <td>{{ venda.quantidade }}</td>
-        <td>R$ {{ "%.2f"|format(venda.total or 0) }}</td>
-        <td>
-            <form method="POST" action="{{ url_for('receber_venda', venda_id=venda.id) }}">
-                <select name="forma" required>
-                    <option value="dinheiro">Dinheiro</option>
-                    <option value="transferencia">Transferência</option>
-                </select>
-                <button type="submit">Baixar</button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
-
+<div class="hero"><div><h2>Controle de Fiado</h2><p>Acompanhe os débitos em aberto, quite por cliente ou faça a baixa individual de cada lançamento.</p></div><div class="hero-badge">Módulo financeiro</div></div>
+<div class="resumo-grid"><div class="resumo-item"><h3>Total em aberto</h3><p>R$ {{ "%.2f"|format(total_geral_fiado or 0) }}</p></div><div class="resumo-item"><h3>Clientes com fiado</h3><p>{{ total_clientes or 0 }}</p></div><div class="resumo-item"><h3>Lançamentos em aberto</h3><p>{{ total_lancamentos or 0 }}</p></div></div>
+<div class="card"><form method="GET" class="form-grid"><div class="field" style="grid-column:1/-1;"><label>Buscar</label><input type="text" name="busca" placeholder="Buscar por cliente, produto, telefone ou local..." value="{{ busca }}"></div></form></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Resumo por cliente</h3><div class="sub">Ordenado do maior valor em aberto para o menor.</div></div></div><div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Local</th><th>Lançamentos</th><th>Débito</th><th>Quitar tudo</th></tr></thead><tbody>{% for c in clientes_resumo %}<tr><td><strong>{{ c.nome }}</strong></td><td>{{ c.local or '-' }}</td><td>{{ c.qtd_lancamentos or 0 }}</td><td><strong>R$ {{ "%.2f"|format(c.total_divida or 0) }}</strong></td><td><form method="POST" action="{{ url_for('quitar_fiado_cliente', cliente_id=c.id) }}" class="actions-inline"><select name="forma" required><option value="dinheiro">Dinheiro</option><option value="transferencia">Transferência</option></select><button type="submit" class="btn btn-success">Quitar tudo</button></form></td></tr>{% else %}<tr><td colspan="5">Nenhum cliente com fiado.</td></tr>{% endfor %}</tbody></table></div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Lançamentos em aberto</h3><div class="sub">Visual detalhado do fiado por cliente, item vendido e data.</div></div></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Local</th><th>Item vendido</th><th>Qtd</th><th>Valor</th><th>Baixa</th></tr></thead><tbody>{% for venda, cliente, produto in vendas_fiado %}<tr><td>{{ venda.data.strftime('%d/%m/%Y') if venda.data else '' }}</td><td>{{ cliente.nome }}</td><td>{{ cliente.local or '-' }}</td><td>{{ produto.nome if produto else 'Item diverso' }}</td><td>{{ venda.quantidade }}</td><td><strong>R$ {{ "%.2f"|format(venda.total or 0) }}</strong></td><td><form method="POST" action="{{ url_for('receber_venda', venda_id=venda.id) }}" class="actions-inline"><select name="forma" required><option value="dinheiro">Dinheiro</option><option value="transferencia">Transferência</option></select><button type="submit" class="btn btn-success">Dar baixa</button></form></td></tr>{% else %}<tr><td colspan="7">Nenhuma venda em aberto.</td></tr>{% endfor %}</tbody></table></div></div>
 {% endblock %}

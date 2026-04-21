@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="hero"><div><h2>Relatórios Gerais</h2><p>Acesse rapidamente os relatórios mais importantes do sistema a partir de um único painel centralizado.</p></div><div class="hero-badge">Central de análises</div></div>
+<div class="produto-grid">
+    <a class="produto-card" href="{{ url_for('relatorio_financeiro') }}"><h3 class="section-title">💰 Relatório Financeiro</h3><p class="muted">Saldos, entradas, saídas e histórico financeiro.</p></a>
+    <a class="produto-card" href="{{ url_for('relatorio_estoque') }}"><h3 class="section-title">📦 Relatório de Estoque</h3><p class="muted">Posição de estoque e movimentações recentes.</p></a>
+    <a class="produto-card" href="{{ url_for('relatorio_lucro') }}"><h3 class="section-title">📈 Relatório de Lucro</h3><p class="muted">Faturamento, custo e lucro por produto.</p></a>
+    <a class="produto-card" href="{{ url_for('fluxo_caixa') }}"><h3 class="section-title">📅 Fluxo de Caixa</h3><p class="muted">Resumo diário de entradas e saídas.</p></a>
+    <a class="produto-card" href="{{ url_for('ranking_clientes') }}"><h3 class="section-title">🏆 Ranking de Clientes</h3><p class="muted">Clientes com maior volume financeiro.</p></a>
+    <a class="produto-card" href="{{ url_for('relatorio_fiado_cliente') }}"><h3 class="section-title">👤 Fiado por Cliente</h3><p class="muted">Resumo do fiado agrupado por cliente.</p></a>
+    <a class="produto-card" href="{{ url_for('relatorio_fiado_local') }}"><h3 class="section-title">📍 Fiado por Local</h3><p class="muted">Resumo do fiado agrupado por local.</p></a>
+    <a class="produto-card" href="{{ url_for('relatorio_vendas_local_data') }}"><h3 class="section-title">🧾 Vendas por Local e Data</h3><p class="muted">Quantidade e faturamento por local e dia.</p></a>
+    <a class="produto-card" href="{{ url_for('relatorio_produto_local_dia') }}"><h3 class="section-title">📦 Produto por Local e Dia</h3><p class="muted">Desempenho de produtos por local e dia.</p></a>
+    <a class="produto-card" href="{{ url_for('painel_financeiro') }}"><h3 class="section-title">📉 Painel Financeiro</h3><p class="muted">Resumo executivo com foco no fiado.</p></a>
+    <a class="produto-card" href="{{ url_for('fechamento_caixa') }}"><h3 class="section-title">🔒 Fechamento de Caixa</h3><p class="muted">Conciliação diária e fechamento operacional.</p></a>
+</div>
+{% endblock %}

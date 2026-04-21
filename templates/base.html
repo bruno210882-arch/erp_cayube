@@ -8,36 +8,44 @@
     <meta name="theme-color" content="#151b2f">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/erp-192.png') }}">
     <style>
-        *{box-sizing:border-box} :root{--bg:#f4f7fb;--bg2:#eef2ff;--card:#fff;--text:#162033;--muted:#667085;--line:#e8edf5;--primary:#1e2a78;--primary2:#0f766e;--success:#18794e;--danger:#c2410c;--shadow:0 14px 40px rgba(15,23,42,.08);--radius:20px}
+        *{box-sizing:border-box}
+        :root{--bg:#f4f7fb;--bg2:#eef2ff;--card:#fff;--text:#162033;--muted:#667085;--line:#e8edf5;--primary:#1e2a78;--primary2:#0f766e;--success:#18794e;--danger:#c2410c;--warning:#b45309;--shadow:0 14px 40px rgba(15,23,42,.08);--radius:20px}
         body{margin:0;font-family:Arial,sans-serif;color:var(--text);background:radial-gradient(circle at top left,#eef4ff 0,#f6f8fc 35%,#f4f7fb 100%)}
-        a{text-decoration:none}
+        a{text-decoration:none;color:inherit}
         .topbar{background:linear-gradient(135deg,#121936,#1e2a78 60%,#157f75);color:#fff;padding:20px 22px;position:sticky;top:0;z-index:30;box-shadow:0 10px 30px rgba(2,6,23,.18)}
-        .topbar-inner{max-width:1300px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:18px}
+        .topbar-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:18px}
         .brand{display:flex;align-items:center;gap:14px}.brand-logo{width:54px;height:54px;border-radius:16px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid rgba(255,255,255,.18)}
         .brand-logo img{width:100%;height:100%;object-fit:contain;padding:8px}.brand h1{margin:0;font-size:24px}.brand p{margin:4px 0 0;font-size:13px;opacity:.84}
         .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ghost-chip{padding:9px 14px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);font-size:13px;color:#fff}
-        .shell{max-width:1300px;margin:0 auto;padding:20px}
+        .shell{max-width:1400px;margin:0 auto;padding:20px}
         .menu-card{background:rgba(255,255,255,.9);backdrop-filter:blur(8px);border:1px solid rgba(226,232,240,.9);box-shadow:var(--shadow);border-radius:24px;padding:14px;margin-top:-18px;position:relative;z-index:20}
         .menu{display:flex;flex-wrap:wrap;gap:10px}.menu a{color:var(--text);font-weight:700;padding:11px 16px;border-radius:14px;transition:.2s;border:1px solid transparent;background:#fff}.menu a:hover{background:#eff5ff;border-color:#dbe7ff;transform:translateY(-1px)}
-        .page{padding:22px 0 40px}.hero{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:22px;flex-wrap:wrap}.hero h2{margin:0;font-size:30px}.hero p{margin:8px 0 0;color:var(--muted)}
-        .hero-badge{background:linear-gradient(135deg,#fff,#f7fbff);border:1px solid var(--line);border-radius:18px;padding:14px 18px;box-shadow:var(--shadow);font-weight:700}
+        .page{padding:22px 0 40px}
+        .page-wrap{max-width:1320px;margin:0 auto}
+        .hero{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:22px;flex-wrap:wrap}.hero h2{margin:0;font-size:30px}.hero p{margin:8px 0 0;color:var(--muted);max-width:820px}
+        .hero-badge{background:linear-gradient(135deg,#fff,#f7fbff);border:1px solid var(--line);border-radius:18px;padding:14px 18px;box-shadow:var(--shadow);font-weight:700;text-align:center}
         .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-bottom:20px}
         .grid-cards,.stats-grid,.resumo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
-        .stat-card,.resumo-item{background:linear-gradient(180deg,#fff 0,#f8fbff 100%);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:20px}
+        .stat-card,.resumo-item{background:linear-gradient(180deg,#fff 0,#f8fbff 100%);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:20px;text-align:center}
         .stat-card h3,.resumo-item h3{margin:0 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
         .stat-card p,.resumo-item p{margin:0;font-size:28px;font-weight:800}
         .toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.toolbar .sub{color:var(--muted);font-size:14px}
         .panel-title{margin:0 0 6px;font-size:22px}.section-title{margin:0 0 14px;font-size:20px}
-        table{width:100%;border-collapse:separate;border-spacing:0 10px} th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:0 14px 8px}
-        td{background:#fff;padding:15px 14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)} td:first-child{border-left:1px solid var(--line);border-radius:14px 0 0 14px} td:last-child{border-right:1px solid var(--line);border-radius:0 14px 14px 0}
+        .table-wrap{overflow:auto}
+        table{width:100%;border-collapse:separate;border-spacing:0 10px} th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:0 14px 8px;white-space:nowrap}
+        td{background:#fff;padding:15px 14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);vertical-align:middle} td:first-child{border-left:1px solid var(--line);border-radius:14px 0 0 14px} td:last-child{border-right:1px solid var(--line);border-radius:0 14px 14px 0}
         input,select,textarea{width:100%;padding:13px 14px;border-radius:14px;border:1px solid #d8e0ee;background:#fff;font-size:15px;color:var(--text);outline:none;transition:.2s} input:focus,select:focus,textarea:focus{border-color:#9bb6ff;box-shadow:0 0 0 4px rgba(59,130,246,.08)}
         .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.field label{display:block;font-size:13px;font-weight:700;margin-bottom:7px;color:#344054}.field small{display:block;color:var(--muted);margin-top:6px}
         button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:14px;padding:12px 18px;font-size:14px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#172554,#1e40af);color:#fff;box-shadow:0 10px 24px rgba(30,64,175,.18)}
         .btn-secondary{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none}.btn-success{background:linear-gradient(135deg,#166534,#22c55e)}.btn-danger{background:linear-gradient(135deg,#9a3412,#f97316)}.btn-warning{background:linear-gradient(135deg,#92400e,#f59e0b)}
-        .actions-inline{display:flex;gap:8px;flex-wrap:wrap}.muted{color:var(--muted)}.danger{color:var(--danger);font-weight:700}.success{color:var(--success);font-weight:700}
+        .actions-inline{display:flex;gap:8px;flex-wrap:wrap}.muted{color:var(--muted)}.danger{color:var(--danger);font-weight:700}.success{color:var(--success);font-weight:700}.warning{color:var(--warning);font-weight:700}
         .flash-wrap{display:grid;gap:10px;margin-bottom:16px}.flash{padding:13px 15px;border-radius:14px;font-weight:700}.flash.success{background:#ecfdf3;color:#166534;border:1px solid #bbf7d0}.flash.danger{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}.flash.warning{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.flash.info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
         .empty-state{padding:28px;border:1px dashed #cbd5e1;border-radius:18px;background:#f8fbff;text-align:center;color:var(--muted)}
         .pill{display:inline-block;padding:7px 10px;border-radius:999px;background:#eef4ff;color:#1d4ed8;font-weight:700;font-size:12px}.pill.success{background:#ecfdf3;color:#166534}.pill.warning{background:#fff7ed;color:#c2410c}.pill.danger{background:#fff1f2;color:#be123c}
+        .produto-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+        .produto-card{background:linear-gradient(180deg,#fff 0,#f8fbff 100%);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+        .setor-card{padding:18px 20px;border-radius:18px;border:1px solid var(--line);background:#fff;font-weight:800;cursor:pointer;box-shadow:var(--shadow);margin-bottom:10px}
+        .setor-conteudo{display:none;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;padding:14px 0 18px}.setor-conteudo a{display:block;background:#fff;border:1px solid var(--line);padding:14px;border-radius:14px;font-weight:700;text-align:center}.setor-conteudo a:hover{background:#eff6ff}
         @media (max-width:720px){.topbar{padding:18px 16px}.shell{padding:16px}.hero h2{font-size:24px}.card{padding:18px}.menu a{padding:10px 12px}.actions{display:none}}
     </style>
     {% block extra_head %}{% endblock %}
@@ -56,33 +64,36 @@
             </div>
             <div class="actions">
                 <span class="ghost-chip">Painel gerencial</span>
-                <span class="ghost-chip">Visual renovado</span>
+                <span class="ghost-chip">Visual padronizado</span>
             </div>
         </div>
     </header>
     <div class="shell">
+        {% if request.endpoint != 'index' %}
         <div class="menu-card">
             <nav class="menu">
                 <a href="{{ url_for('index') }}">Dashboard</a>
                 <a href="{{ url_for('clientes') }}">Clientes</a>
                 <a href="{{ url_for('produtos') }}">Produtos</a>
-                <a href="{{ url_for('venda') }}">Vendas</a>
+                <a href="{{ url_for('inventario_estoque') }}">Inventário</a>
+                <a href="{{ url_for('venda') }}">Venda</a>
+                <a href="{{ url_for('venda_rapida') }}">Venda Rápida</a>
+                <a href="{{ url_for('vendas_diretas') }}">Vendas Diretas</a>
+                <a href="{{ url_for('pedidos_clientes') }}">Pedidos</a>
                 <a href="{{ url_for('fiado') }}">Fiado</a>
                 <a href="{{ url_for('movimentacao') }}">Movimentação</a>
                 <a href="{{ url_for('entrada_estoque') }}">Entrada Estoque</a>
-                <a href="{{ url_for('relatorio_financeiro') }}">Financeiro</a>
-                <a href="{{ url_for('relatorio_estoque') }}">Estoque</a>
-                <a href="{{ url_for('relatorio_lucro') }}">Lucro</a>
-                <a href="{{ url_for('fluxo_caixa') }}">Fluxo Caixa</a>
-                <a href="{{ url_for('fechamento_caixa') }}">Fechamento</a>
-                <a href="{{ url_for('pedidos_clientes') }}">Pedidos</a>
+                <a href="{{ url_for('entrada_rapida') }}">Entrada Rápida</a>
+                <a href="{{ url_for('baixa_estoque') }}">Baixa sem Venda</a>
+                <a href="{{ url_for('relatorios_gerais') }}">Relatórios Gerais</a>
+                <a href="{{ url_for('notificacoes') }}">Notificações</a>
                 <a href="{{ url_for('usuarios') }}">Usuários</a>
                 <a href="{{ url_for('backup') }}">Backup</a>
-                <a href="{{ url_for('notificacoes') }}">Notificações</a>
-                <a href="{{ url_for('baixa_estoque') }}">Baixa sem Venda</a><a class="nav-link" href="{{ url_for('baixa_estoque') }}">Baixa sem Venda</a><a href="{{ url_for('logout') }}">Sair</a>
             </nav>
         </div>
+        {% endif %}
         <main class="page">
+            <div class="page-wrap">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                 <div class="flash-wrap">
@@ -93,6 +104,7 @@
                 {% endif %}
             {% endwith %}
             {% block conteudo %}{% endblock %}
+            </div>
         </main>
     </div>
 </body>

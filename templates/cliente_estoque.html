@@ -1,22 +1,12 @@
 {% extends "base_cliente.html" %}
 {% block conteudo %}
-<div class="hero">
-    <div>
-        <h2>Produtos disponíveis</h2>
-        <p>Confira os itens disponíveis antes de montar seu próximo pedido.</p>
-    </div>
-    <span class="pill">Estoque atualizado</span>
-</div>
+<div class="hero"><div><h2>Produtos disponíveis</h2><p>Confira os itens com estoque positivo antes de montar seu próximo pedido.</p></div><span class="pill">Estoque atualizado</span></div>
 <div class="card">
     {% if produtos %}
-    <table>
-        <tr><th>Produto</th><th>Preço</th><th>Estoque</th></tr>
-        {% for produto in produtos %}
-        <tr><td>{{ produto.nome }}</td><td>R$ {{ "%.2f"|format(produto.preco) }}</td><td>{{ produto.estoque }}</td></tr>
-        {% endfor %}
-    </table>
-    {% else %}
-    <div class="empty-state">Nenhum produto disponível.</div>
-    {% endif %}
+    <div class="table-wrap"><table>
+        <thead><tr><th>Produto</th><th>Preço</th><th>Estoque</th></tr></thead>
+        <tbody>{% for produto in produtos %}<tr><td><strong>{{ produto.nome }}</strong></td><td>R$ {{ "%.2f"|format(produto.preco or 0) }}</td><td>{{ produto.estoque or 0 }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="empty-state">Nenhum produto disponível.</div>{% endif %}
 </div>
 {% endblock %}

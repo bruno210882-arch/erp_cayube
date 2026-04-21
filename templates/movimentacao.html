@@ -1,64 +1,7 @@
 {% extends 'base.html' %}
 {% block conteudo %}
-
-<h2>💰 Caixa</h2>
-
-<div style="display:flex; gap:20px; margin-bottom:20px;">
-    <div class="card">
-        <h3>Saldo Dinheiro</h3>
-        <p>R$ {{ "%.2f"|format(saldo.dinheiro) }}</p>
-    </div>
-
-    <div class="card">
-        <h3>Saldo Conta</h3>
-        <p>R$ {{ "%.2f"|format(saldo.conta) }}</p>
-    </div>
-</div>
-
-<h3>Movimentações</h3>
-
-<table>
-    <tr>
-        <th>Data</th>
-        <th>Tipo</th>
-        <th>Valor</th>
-        <th>Origem</th>
-        <th>Descrição</th>
-    </tr>
-
-    {% for m in movimentos %}
-    <tr>
-        <td>{{ m.data.strftime('%d/%m/%Y %H:%M') }}</td>
-        <td>{{ m.tipo }}</td>
-        <td>R$ {{ "%.2f"|format(m.valor) }}</td>
-        <td>{{ m.origem }}</td>
-        <td>{{ m.descricao }}</td>
-    </tr>
-    {% endfor %}
-</table>
-
-<h3>Nova movimentação</h3>
-
-<form method="POST">
-    <label>Tipo</label>
-    <select name="tipo">
-        <option value="entrada">Entrada</option>
-        <option value="saida">Saída</option>
-    </select>
-
-    <label>Valor</label>
-    <input type="number" step="0.01" name="valor" required>
-
-    <label>Origem</label>
-    <select name="origem">
-        <option value="dinheiro">Dinheiro</option>
-        <option value="conta">Conta</option>
-    </select>
-
-    <label>Descrição</label>
-    <input type="text" name="descricao" required>
-
-    <button type="submit">Salvar</button>
-</form>
-
+<div class="hero"><div><h2>Movimentação Financeira</h2><p>Controle entradas e saídas do caixa com visual padronizado e histórico centralizado.</p></div><div class="hero-badge">Caixa e conta</div></div>
+<div class="resumo-grid"><div class="resumo-item"><h3>Saldo Dinheiro</h3><p>R$ {{ "%.2f"|format(saldo.dinheiro or 0) }}</p></div><div class="resumo-item"><h3>Saldo Conta</h3><p>R$ {{ "%.2f"|format(saldo.conta or 0) }}</p></div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Nova movimentação</h3><div class="sub">Registre entradas e saídas manualmente.</div></div></div><form method="POST" class="form-grid"><div class="field"><label>Tipo</label><select name="tipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select></div><div class="field"><label>Valor</label><input type="number" step="0.01" name="valor" required></div><div class="field"><label>Origem</label><select name="origem"><option value="dinheiro">Dinheiro</option><option value="conta">Conta</option></select></div><div class="field"><label>Descrição</label><input type="text" name="descricao" required></div><div class="field" style="display:flex;align-items:end;"><button type="submit">Salvar</button></div></form></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Histórico de movimentações</h3><div class="sub">Lançamentos mais recentes primeiro.</div></div></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Valor</th><th>Origem</th><th>Descrição</th></tr></thead><tbody>{% for m in movimentos %}<tr><td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td><td>{{ m.tipo }}</td><td>R$ {{ "%.2f"|format(m.valor or 0) }}</td><td>{{ m.origem }}</td><td>{{ m.descricao }}</td></tr>{% else %}<tr><td colspan="5">Nenhuma movimentação encontrada.</td></tr>{% endfor %}</tbody></table></div></div>
 {% endblock %}

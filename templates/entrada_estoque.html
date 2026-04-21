@@ -1,67 +1,7 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block conteudo %}
-
-<h2>📥 Entrada de Estoque</h2>
-
-<div style="display:flex; gap:20px; margin-bottom:20px;">
-    <div class="card">
-        <h3>Saldo Dinheiro</h3>
-        <p>R$ {{ "%.2f"|format(saldo.dinheiro or 0) }}</p>
-    </div>
-
-    <div class="card">
-        <h3>Saldo Conta</h3>
-        <p>R$ {{ "%.2f"|format(saldo.conta or 0) }}</p>
-    </div>
-</div>
-
-<form method="POST">
-    <label>Produto</label>
-    <select name="produto" required>
-        {% for p in produtos %}
-        <option value="{{ p.id }}">
-            {{ p.nome }} - Estoque atual: {{ p.estoque }}
-        </option>
-        {% endfor %}
-    </select>
-
-    <label>Quantidade comprada</label>
-    <input type="number" name="quantidade" min="1" required>
-
-    <label>Valor total da compra</label>
-    <input type="number" step="0.01" name="valor_compra" min="0.01" required>
-
-    <label>Origem do pagamento</label>
-    <select name="origem" required>
-        <option value="dinheiro">Caixa / Dinheiro</option>
-        <option value="conta">Conta</option>
-        <option value="capital_dinheiro">Injeção de capital no Dinheiro</option>
-        <option value="capital_conta">Injeção de capital na Conta</option>
-    </select>
-
-    <button type="submit">Registrar Compra</button>
-</form>
-
-{% if movimentos %}
-<h3 style="margin-top:30px;">Últimas entradas</h3>
-<table>
-    <tr>
-        <th>Data</th>
-        <th>Produto ID</th>
-        <th>Tipo</th>
-        <th>Quantidade</th>
-        <th>Motivo</th>
-    </tr>
-    {% for m in movimentos %}
-    <tr>
-        <td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td>
-        <td>{{ m.produto_id }}</td>
-        <td>{{ m.tipo }}</td>
-        <td>{{ m.quantidade }}</td>
-        <td>{{ m.motivo }}</td>
-    </tr>
-    {% endfor %}
-</table>
-{% endif %}
-
+<div class="hero"><div><h2>Entrada de estoque</h2><p>Registre compras e entrada de mercadorias com impacto automático no estoque e no financeiro.</p></div><div class="hero-badge">Compras e reposição</div></div>
+<div class="resumo-grid"><div class="resumo-item"><h3>Saldo Dinheiro</h3><p>R$ {{ "%.2f"|format(saldo.dinheiro or 0) }}</p></div><div class="resumo-item"><h3>Saldo Conta</h3><p>R$ {{ "%.2f"|format(saldo.conta or 0) }}</p></div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Registrar compra</h3><div class="sub">Preencha os dados para lançar entrada no estoque.</div></div></div><form method="POST" class="form-grid"><div class="field"><label>Produto</label><select name="produto" required><option value="">Selecione</option>{% for p in produtos %}<option value="{{ p.id }}">{{ p.nome }}</option>{% endfor %}</select></div><div class="field"><label>Quantidade</label><input type="number" name="quantidade" min="1" required></div><div class="field"><label>Valor da compra</label><input type="number" step="0.01" name="valor_compra" min="0" required></div><div class="field"><label>Origem do pagamento</label><select name="origem" required><option value="dinheiro">Dinheiro</option><option value="conta">Conta</option><option value="capital_dinheiro">Capital no dinheiro</option><option value="capital_conta">Capital na conta</option></select></div><div class="field" style="display:flex;align-items:end;"><button type="submit" class="btn btn-success">Registrar entrada</button></div></form></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Histórico de movimentações de estoque</h3><div class="sub">Exibindo do registro mais recente para o mais antigo.</div></div></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Produto ID</th><th>Tipo</th><th>Quantidade</th><th>Motivo</th></tr></thead><tbody>{% for m in movimentos %}<tr><td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td><td>{{ m.produto_id }}</td><td>{{ m.tipo }}</td><td>{{ m.quantidade }}</td><td>{{ m.motivo }}</td></tr>{% else %}<tr><td colspan="5">Nenhuma movimentação encontrada.</td></tr>{% endfor %}</tbody></table></div></div>
 {% endblock %}

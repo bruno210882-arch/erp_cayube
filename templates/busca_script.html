@@ -1,0 +1,36 @@
+<script>
+document.getElementById("busca").addEventListener("keyup", function() {
+    let termo = this.value.toLowerCase()
+    let linhas = document.querySelectorAll(".linha-busca")
+
+    linhas.forEach(linha => {
+        linha.style.display = linha.innerText.toLowerCase().includes(termo)
+            ? ""
+            : "none"
+    })
+})
+</script>
+
+<style>
+.input-busca{
+    width:100%;
+    padding:12px;
+    margin-bottom:15px;
+    border-radius:10px;
+    border:1px solid #ccc;
+}
+
+.card{
+    background:white;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:10px;
+}
+</style>

@@ -1,36 +1,98 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block conteudo %}
 <div class="hero">
     <div>
-        <h2>Dashboard do ERP</h2>
-        <p>Visão rápida do caixa, estoque, fiado e desempenho das vendas.</p>
+        <h2>Dashboard</h2>
+        <p>Navegação setorizada ativa. Use os blocos abaixo para acessar as áreas principais do sistema com mais agilidade e mantendo um padrão visual único.</p>
     </div>
-    <div class="hero-badge">Resumo operacional do dia</div>
+    <div class="hero-badge">Painel central do ERP</div>
 </div>
-<div class="stats-grid">
-    <div class="stat-card"><h3>Dinheiro</h3><p>R$ {{ "%.2f"|format(saldo.dinheiro or 0) }}</p></div>
-    <div class="stat-card"><h3>Conta</h3><p>R$ {{ "%.2f"|format(saldo.conta or 0) }}</p></div>
-    <div class="stat-card"><h3>Total Caixa</h3><p>R$ {{ "%.2f"|format((saldo.dinheiro or 0) + (saldo.conta or 0)) }}</p></div>
-    <div class="stat-card"><h3>Vendas Recebidas</h3><p>R$ {{ "%.2f"|format(total_vendas or 0) }}</p></div>
-    <div class="stat-card"><h3>Total Fiado</h3><p>R$ {{ "%.2f"|format(total_fiado or 0) }}</p></div>
-    <div class="stat-card"><h3>Itens em Estoque</h3><p>{{ total_estoque or 0 }}</p></div>
-    <div class="stat-card"><h3>Lucro Total</h3><p>R$ {{ "%.2f"|format(lucro_total or 0) }}</p></div>
+
+<div class="resumo-grid">
+    <div class="resumo-item"><h3>Vendas Hoje</h3><p>R$ {{ "%.2f"|format(vendas_hoje or 0) }}</p></div>
+    <div class="resumo-item"><h3>Caixa Atual</h3><p>R$ {{ "%.2f"|format(caixa_total or 0) }}</p></div>
+    <div class="resumo-item"><h3>Fiado em Aberto</h3><p>R$ {{ "%.2f"|format(total_fiado or 0) }}</p></div>
+    <div class="resumo-item"><h3>Faturamento Geral</h3><p>R$ {{ "%.2f"|format(total_vendas or 0) }}</p></div>
 </div>
-{% if produtos_baixo_estoque %}
+
 <div class="card">
     <div class="toolbar">
         <div>
-            <h3 class="panel-title">Produtos com estoque baixo</h3>
-            <div class="sub">Acompanhe os itens que merecem reposição imediata.</div>
+            <h3 class="panel-title">Menu setorizado</h3>
+            <div class="sub">Clique em um setor para abrir somente os atalhos daquela área.</div>
         </div>
-        <span class="pill warning">Atenção ao estoque</span>
     </div>
-    <table>
-        <tr><th>Produto</th><th>Estoque</th></tr>
-        {% for p in produtos_baixo_estoque %}
-        <tr><td>{{ p.nome }}</td><td class="danger">{{ p.estoque }}</td></tr>
-        {% endfor %}
-    </table>
+
+    <div class="setor-card" onclick="toggleSetor('operacoes')">🧾 Operações de venda</div>
+    <div id="operacoes" class="setor-conteudo">
+        <a href="{{ url_for('venda') }}">Venda direta</a>
+        <a href="{{ url_for('venda_rapida') }}">Venda rápida</a>
+        <a href="{{ url_for('vendas_diretas') }}">Vendas diretas</a>
+        <a href="{{ url_for('pedidos_clientes') }}">Pedidos dos clientes</a>
+        <a href="{{ url_for('fiado') }}">Fiado</a>
+    </div>
+
+    <div class="setor-card" onclick="toggleSetor('estoque')">📦 Estoque e inventário</div>
+    <div id="estoque" class="setor-conteudo">
+        <a href="{{ url_for('produtos') }}">Produtos</a>
+        <a href="{{ url_for('inventario_estoque') }}">Inventário de estoque</a>
+        <a href="{{ url_for('entrada_estoque') }}">Entrada de estoque</a>
+        <a href="{{ url_for('entrada_rapida') }}">Entrada rápida</a>
+        <a href="{{ url_for('baixa_estoque') }}">Baixa sem venda</a>
+    </div>
+
+    <div class="setor-card" onclick="toggleSetor('cadastros')">👥 Cadastros</div>
+    <div id="cadastros" class="setor-conteudo">
+        <a href="{{ url_for('clientes') }}">Clientes</a>
+        <a href="{{ url_for('usuarios') }}">Usuários</a>
+        <a href="{{ url_for('notificacoes') }}">Notificações</a>
+    </div>
+
+    <div class="setor-card" onclick="toggleSetor('financeiro')">💰 Financeiro e relatórios</div>
+    <div id="financeiro" class="setor-conteudo">
+        <a href="{{ url_for('movimentacao') }}">Movimentação</a>
+        <a href="{{ url_for('painel_financeiro') }}">Painel financeiro</a>
+        <a href="{{ url_for('relatorios_gerais') }}">Relatórios gerais</a>
+        <a href="{{ url_for('fechamento_caixa') }}">Fechamento de caixa</a>
+    </div>
 </div>
-{% endif %}
+
+<div class="grid-cards">
+    <div class="card">
+        <h3 class="section-title">⚠️ Maiores devedores</h3>
+        {% for nome, total in top_devedores %}
+            <p><strong>{{ nome }}</strong> — R$ {{ "%.2f"|format(total or 0) }}</p>
+        {% else %}
+            <div class="empty-state">Nenhum registro de fiado em aberto.</div>
+        {% endfor %}
+    </div>
+    <div class="card">
+        <h3 class="section-title">⏳ Dívidas antigas</h3>
+        {% for v in antigos %}
+            <p>Venda #{{ v.id }} — R$ {{ "%.2f"|format(v.total or 0) }}</p>
+        {% else %}
+            <div class="empty-state">Nenhuma dívida antiga encontrada.</div>
+        {% endfor %}
+    </div>
+    <div class="card">
+        <h3 class="section-title">📦 Estoque baixo</h3>
+        {% for p in estoque_baixo %}
+            <p><strong>{{ p.nome }}</strong> — {{ p.estoque or 0 }} unidade(s)</p>
+        {% else %}
+            <div class="empty-state">Nenhum item com estoque baixo.</div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function toggleSetor(id) {
+  document.querySelectorAll('.setor-conteudo').forEach(el => {
+    if (el.id === id) {
+      el.style.display = el.style.display === 'grid' ? 'none' : 'grid';
+    } else {
+      el.style.display = 'none';
+    }
+  });
+}
+</script>
 {% endblock %}

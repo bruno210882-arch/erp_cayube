@@ -1,58 +1,86 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+{% block titulo %}Produtos{% endblock %}
 {% block conteudo %}
 <div class="hero">
     <div>
-        <h2>Produtos</h2>
-        <p>Cadastre itens, acompanhe margem e controle seu estoque com mais clareza.</p>
+        <h2>Produtos e estoque</h2>
+        <p>Cadastre, consulte e acompanhe o estoque atual. Para conferência física, use a tela de inventário.</p>
     </div>
-    <div class="hero-badge">Catálogo e margem</div>
+    <div class="hero-badge">Cadastro e controle</div>
 </div>
-<div class="grid-cards">
-    <div class="card">
-        <h3 class="section-title">Cadastrar Produto</h3>
-        <form method="POST" action="{{ url_for('add_produto') }}">
-            <div class="field"><label>Nome</label><input type="text" name="nome" required></div>
-            <div class="form-grid">
-                <div class="field"><label>Preço</label><input type="number" step="0.01" name="preco" required></div>
-                <div class="field"><label>Custo</label><input type="number" step="0.01" name="custo" required></div>
-                <div class="field"><label>Estoque Inicial</label><input type="number" name="estoque" required></div>
+
+<div class="card">
+    <h3 class="section-title">Cadastrar Produto</h3>
+    <form method="POST" action="{{ url_for('add_produto') }}">
+        <div class="form-grid">
+            <div class="field">
+                <label for="nome">Nome do produto</label>
+                <input type="text" id="nome" name="nome" placeholder="Ex.: Cocada branca" required>
             </div>
-            <button type="submit">Cadastrar</button>
-        </form>
-    </div>
-    <div class="card">
-        <h3 class="section-title">Resumo</h3>
-        <div class="resumo-grid">
-            <div class="resumo-item"><h3>Total de Produtos</h3><p>{{ produtos|length }}</p></div>
-            <div class="resumo-item"><h3>Total em Estoque</h3><p>{{ produtos|sum(attribute='estoque') }}</p></div>
-            <div class="resumo-item"><h3>Valor Investido</h3><p>R$ {{ "%.2f"|format(produtos|sum(attribute='custo')) }}</p></div>
+            <div class="field">
+                <label for="preco">Preço de venda</label>
+                <input type="number" step="0.01" min="0" id="preco" name="preco" placeholder="0,00" required>
+            </div>
+            <div class="field">
+                <label for="custo">Custo</label>
+                <input type="number" step="0.01" min="0" id="custo" name="custo" placeholder="0,00" required>
+            </div>
+            <div class="field">
+                <label for="estoque">Estoque inicial</label>
+                <input type="number" min="0" id="estoque" name="estoque" placeholder="0" required>
+            </div>
         </div>
-    </div>
+        <button type="submit">Cadastrar Produto</button>
+    </form>
 </div>
+
+<div class="actions-inline" style="margin-bottom:18px;">
+    <a class="btn" href="{{ url_for('inventario_estoque') }}">Inventário de estoque</a>
+    <a class="btn btn-secondary" href="{{ url_for('entrada_estoque') }}">Entrada de estoque</a>
+    <a class="btn btn-secondary" href="{{ url_for('baixa_estoque') }}">Baixa sem venda</a>
+</div>
+
 <div class="card">
     <div class="toolbar">
         <div>
-            <h3 class="panel-title">Lista de Produtos</h3>
-            <div class="sub">Margem individual e atenção para itens com estoque baixo.</div>
+            <h3 class="panel-title">Produtos cadastrados</h3>
+            <div class="sub">Use a busca para localizar um item e acompanhar preço, custo e estoque.</div>
         </div>
+        <span class="pill">{{ produtos|length }} itens</span>
     </div>
-    {% if produtos %}
+
+    <input type="text" id="busca" placeholder="Buscar produto..." style="margin-bottom:16px;">
+    <div class="table-wrap">
     <table>
-        <tr><th>ID</th><th>Nome</th><th>Preço</th><th>Custo</th><th>Lucro</th><th>Estoque</th><th>Ações</th></tr>
-        {% for p in produtos %}
-        <tr>
-            <td>{{ p.id }}</td>
-            <td><strong>{{ p.nome }}</strong></td>
-            <td>R$ {{ "%.2f"|format(p.preco) }}</td>
-            <td>R$ {{ "%.2f"|format(p.custo) }}</td>
-            <td class="success">R$ {{ "%.2f"|format(p.preco - p.custo) }}</td>
-            <td>{% if p.estoque <= 5 %}<span class="pill warning">{{ p.estoque }}</span>{% else %}{{ p.estoque }}{% endif %}</td>
-            <td><a href="{{ url_for('excluir_produto', id=p.id) }}" class="btn btn-danger">Excluir</a></td>
-        </tr>
-        {% endfor %}
+        <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Preço</th>
+                <th>Custo</th>
+                <th>Estoque</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in produtos %}
+            <tr class="linha-busca">
+                <td><strong>{{ p.nome }}</strong></td>
+                <td>R$ {{ "%.2f"|format(p.preco or 0) }}</td>
+                <td>R$ {{ "%.2f"|format(p.custo or 0) }}</td>
+                <td>{{ p.estoque or 0 }}</td>
+                <td>
+                    {% if (p.estoque or 0) <= 0 %}<span class="pill danger">Sem estoque</span>
+                    {% elif (p.estoque or 0) <= 5 %}<span class="pill warning">Estoque baixo</span>
+                    {% else %}<span class="pill success">Normal</span>{% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5">Nenhum produto cadastrado.</td></tr>
+            {% endfor %}
+        </tbody>
     </table>
-    {% else %}
-    <div class="empty-state">Nenhum produto cadastrado.</div>
-    {% endif %}
+    </div>
 </div>
+
+{% include "busca_script.html" %}
 {% endblock %}

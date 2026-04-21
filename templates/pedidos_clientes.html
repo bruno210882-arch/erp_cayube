@@ -1,46 +1,32 @@
 {% extends "base.html" %}
+{% block titulo %}Pedidos dos Clientes{% endblock %}
 {% block conteudo %}
-<div class="hero">
-    <div>
-        <h2>Pedidos dos Clientes</h2>
-        <p>Centralize aprovações, recusas e confirmações de PIX em um painel único.</p>
-    </div>
-    <div class="hero-badge">Gestão de pedidos</div>
+<div class="hero"><div><h2>Pedidos dos clientes</h2><p>Somente pedidos feitos na área do cliente aparecem aqui. Vendas do ERP ficam em vendas diretas.</p></div><div class="hero-badge">Fila de aprovação</div></div>
+<div class="resumo-grid">
+    <div class="resumo-item"><h3>Total de pedidos</h3><p>{{ pedidos|length }}</p></div>
+    <div class="resumo-item"><h3>Aguardando</h3><p>{{ pedidos|selectattr('0.status_pedido','equalto','aguardando_aprovacao')|list|length }}</p></div>
+    <div class="resumo-item"><h3>Aprovados</h3><p>{{ pedidos|selectattr('0.status_pedido','equalto','aprovado')|list|length }}</p></div>
 </div>
 <div class="card">
     {% if pedidos %}
-    <table>
-        <tr><th>ID</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Total</th><th>Pedido</th><th>PIX</th><th>Data</th><th>Ações</th></tr>
-        {% for venda, cliente, produto in pedidos %}
-        <tr>
-            <td>{{ venda.id }}</td>
-            <td><strong>{{ cliente.nome }}</strong></td>
-            <td>{{ produto.nome }}</td>
-            <td>{{ venda.quantidade }}</td>
-            <td>R$ {{ "%.2f"|format(venda.total) }}</td>
-            <td>
-                {% if venda.status_pedido == 'aguardando_aprovacao' %}<span class="pill warning">Aguardando</span>
-                {% elif venda.status_pedido == 'aprovado' %}<span class="pill success">Aprovado</span>
-                {% else %}<span class="pill">{{ venda.status_pedido }}</span>{% endif %}
-            </td>
-            <td>{% if venda.status_pix == 'pago' %}<span class="pill success">Pago</span>{% else %}<span class="pill warning">{{ venda.status_pix }}</span>{% endif %}</td>
-            <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') }}</td>
-            <td>
-                <div class="actions-inline">
-                    {% if venda.status_pedido == "aguardando_aprovacao" %}
-                        <a href="{{ url_for('aprovar_pedido', venda_id=venda.id) }}" class="btn btn-success">Aprovar</a>
-                        <a href="{{ url_for('recusar_pedido', venda_id=venda.id) }}" class="btn btn-danger">Recusar</a>
-                    {% endif %}
-                    {% if venda.status_pedido == "aprovado" and venda.status_pix != "pago" %}
-                        <a href="{{ url_for('confirmar_pix', venda_id=venda.id) }}" class="btn">Confirmar PIX</a>
-                    {% endif %}
-                </div>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
-    {% else %}
-    <div class="empty-state">Nenhum pedido encontrado.</div>
-    {% endif %}
+    <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Total</th><th>Pedido</th><th>PIX</th><th>Data</th><th>Ações</th></tr></thead>
+        <tbody>
+            {% for venda, cliente, produto in pedidos %}
+            <tr>
+                <td>#{{ venda.id }}</td>
+                <td><strong>{{ cliente.nome }}</strong><br><span class="muted">{{ cliente.local or 'Sem local' }}</span></td>
+                <td>{{ produto.nome }}</td>
+                <td>{{ venda.quantidade }}</td>
+                <td>R$ {{ "%.2f"|format(venda.total or 0) }}</td>
+                <td>{% if venda.status_pedido == 'aguardando_aprovacao' %}<span class="pill warning">Aguardando</span>{% elif venda.status_pedido == 'aprovado' %}<span class="pill success">Aprovado</span>{% elif venda.status_pedido == 'recusado' %}<span class="pill danger">Recusado</span>{% else %}<span class="pill">{{ venda.status_pedido }}</span>{% endif %}</td>
+                <td>{% if venda.status_pix == 'pago' %}<span class="pill success">Pago</span>{% elif venda.status_pix == 'cancelado' %}<span class="pill danger">Cancelado</span>{% else %}<span class="pill warning">{{ venda.status_pix }}</span>{% endif %}</td>
+                <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') if venda.data else '' }}</td>
+                <td><div class="actions-inline">{% if venda.status_pedido == "aguardando_aprovacao" %}<a href="{{ url_for('aprovar_pedido', venda_id=venda.id) }}" class="btn btn-success">Aprovar</a><a href="{{ url_for('recusar_pedido', venda_id=venda.id) }}" class="btn btn-danger">Recusar</a>{% endif %}{% if venda.status_pedido == "aprovado" and venda.status_pix != "pago" %}<a href="{{ url_for('confirmar_pix', venda_id=venda.id) }}" class="btn">Confirmar PIX</a>{% endif %}</div></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}<div class="empty-state">Nenhum pedido de cliente encontrado.</div>{% endif %}
 </div>
 {% endblock %}

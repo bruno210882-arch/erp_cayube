@@ -1,74 +1,89 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+{% block titulo %}Venda{% endblock %}
 {% block conteudo %}
 <div class="hero">
     <div>
-        <h2>Nova Venda</h2>
-        <p>Finalize vendas com mais rapidez e encontre clientes por local.</p>
+        <h2>Registrar venda direta</h2>
+        <p>As vendas feitas no ERP são concluídas na hora, entram em Vendas Diretas e não aparecem na fila de pedidos do cliente.</p>
     </div>
-    <div class="hero-badge">Filtro por local ativo</div>
+    <div class="actions-inline">
+        <a class="btn btn-secondary" href="{{ url_for('vendas_diretas') }}">Ver vendas diretas</a>
+        <a class="btn btn-secondary" href="{{ url_for('pedidos_clientes') }}">Pedidos dos clientes</a>
+        <a class="btn btn-secondary" href="{{ url_for('venda_rapida') }}">Venda rápida</a>
+    </div>
 </div>
+
 <div class="card">
-    <div class="form-grid">
+    <div class="toolbar"><div><h3 class="panel-title">Lançamento manual da venda</h3><div class="sub">Escolha produto, cliente e forma de pagamento para concluir a venda imediatamente.</div></div></div>
+    <form method="POST" class="form-grid">
         <div class="field">
-            <label for="filtroLocal">Filtrar clientes por local</label>
-            <input type="text" id="filtroLocal" placeholder="Digite cidade, bairro ou região">
-            <small>O filtro ajuda a localizar rapidamente clientes por região de venda.</small>
+            <label>Produto</label>
+            <select name="produto" required>
+                <option value="" selected>Selecione um produto</option>
+                {% for p in produtos %}
+                <option value="{{ p.id }}">{{ p.nome }} — R$ {{ "%.2f"|format(p.preco or 0) }} — Estoque: {{ p.estoque or 0 }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div class="field">
-            <label for="limparFiltro">Ações</label>
-            <button type="button" id="limparFiltro" class="btn btn-secondary">Limpar filtro</button>
+            <label>Cliente</label>
+            <select name="cliente" required>
+                <option value="" selected>Selecione um cliente</option>
+                {% for c in clientes %}
+                <option value="{{ c.id }}">{{ c.nome }}{% if c.local %} — {{ c.local }}{% endif %}</option>
+                {% endfor %}
+            </select>
+            <small>O cliente é obrigatório para manter o histórico e os relatórios consistentes.</small>
         </div>
-    </div>
-    <form method="POST">
-        <div class="form-grid">
-            <div class="field">
-                <label>Produto</label>
-                <select name="produto" required>
-                    {% for p in produtos %}
-                    <option value="{{ p.id }}">{{ p.nome }} - R$ {{ "%.2f"|format(p.preco) }} (Estoque: {{ p.estoque }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label>Cliente</label>
-                <select name="cliente" id="clienteSelect" required>
-                    {% for c in clientes %}
-                    <option value="{{ c.id }}" data-local="{{ (c.local or '')|lower }}">{{ c.nome }}{% if c.local %} - {{ c.local }}{% endif %}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field"><label>Quantidade</label><input type="number" name="quantidade" min="1" required></div>
-            <div class="field">
-                <label>Forma de pagamento</label>
-                <select name="forma" required>
-                    <option value="dinheiro">Dinheiro</option>
-                    <option value="transferencia">Transferência</option>
-                    <option value="fiado">Fiado</option>
-                </select>
-            </div>
+        <div class="field">
+            <label>Quantidade</label>
+            <input type="number" min="1" name="quantidade" value="1" required>
         </div>
-        <button type="submit">Finalizar Venda</button>
+        <div class="field">
+            <label>Forma de pagamento</label>
+            <select name="forma" required>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="transferencia">Transferência</option>
+                <option value="pix">PIX</option>
+                <option value="fiado">Fiado</option>
+            </select>
+        </div>
+        <div class="field" style="display:flex;align-items:end;">
+            <button type="submit">Registrar venda direta</button>
+        </div>
     </form>
 </div>
-<script>
-const filtroLocal = document.getElementById('filtroLocal');
-const clienteSelect = document.getElementById('clienteSelect');
-const limparFiltro = document.getElementById('limparFiltro');
-const clienteOptions = Array.from(clienteSelect.options).map(opt => ({value: opt.value, text: opt.text, local: (opt.dataset.local || '')}));
-function renderClientes(filtro='') {
-    const termo = filtro.trim().toLowerCase();
-    clienteSelect.innerHTML = '';
-    const filtrados = clienteOptions.filter(opt => !termo || opt.local.includes(termo) || opt.text.toLowerCase().includes(termo));
-    filtrados.forEach(opt => {
-        const option = document.createElement('option');
-        option.value = opt.value; option.textContent = opt.text; option.dataset.local = opt.local; clienteSelect.appendChild(option);
-    });
-    if (!filtrados.length) {
-        const option = document.createElement('option');
-        option.textContent = 'Nenhum cliente encontrado para esse local'; option.disabled = true; option.selected = true; clienteSelect.appendChild(option);
-    }
-}
-filtroLocal?.addEventListener('input', e => renderClientes(e.target.value));
-limparFiltro?.addEventListener('click', () => { filtroLocal.value = ''; renderClientes(''); filtroLocal.focus(); });
-</script>
+
+<div class="card">
+    <div class="toolbar">
+        <div>
+            <h3 class="panel-title">Produtos disponíveis</h3>
+            <div class="sub">Use a busca para localizar rapidamente um item antes de vender.</div>
+        </div>
+    </div>
+    <input type="text" id="busca" placeholder="Buscar produto..." style="margin-bottom:16px;">
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Preço</th>
+                <th>Estoque</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in produtos %}
+            <tr class="linha-busca">
+                <td><strong>{{ p.nome }}</strong></td>
+                <td>R$ {{ "%.2f"|format(p.preco or 0) }}</td>
+                <td>{{ p.estoque or 0 }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3">Nenhum produto cadastrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% include "busca_script.html" %}
 {% endblock %}

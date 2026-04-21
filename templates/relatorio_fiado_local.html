@@ -1,1 +1,5 @@
-<h2>Fiado por Local</h2>
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="hero"><div><h2>Fiado por Local</h2><p>Locais ordenados do maior valor em aberto para o menor.</p></div><div class="hero-badge">Inadimplência por local</div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Resumo do fiado por local</h3><div class="sub">Visão consolidada das pendências por região.</div></div></div>{% if dados %}<div class="table-wrap"><table><thead><tr><th>Posição</th><th>Local</th><th>Total em aberto</th></tr></thead><tbody>{% for local, total in dados %}<tr><td>#{{ loop.index }}</td><td>{{ local or '-' }}</td><td>R$ {{ "%.2f"|format(total or 0) }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state">Nenhum fiado encontrado por local.</div>{% endif %}</div>
+{% endblock %}

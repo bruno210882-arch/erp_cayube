@@ -1,93 +1,10 @@
 {% extends 'base.html' %}
 {% block conteudo %}
-<h2>Entrada Rápida de Estoque</h2>
-
-<div class="grid-2">
-    <div class="card">
-        <h3>Registrar entrada</h3>
-        <form method="POST">
-            <label>Buscar produto</label>
-            <input type="text" id="busca-produto-entrada" placeholder="Digite o nome do produto para filtrar">
-
-            <label>Produto</label>
-            <select name="produto_id" id="produto-entrada-select" required>
-                {% for p in produtos %}
-                <option value="{{ p.id }}">{{ p.nome }} (Estoque atual: {{ p.estoque or 0 }})</option>
-                {% endfor %}
-            </select>
-
-            <div class="grid-2">
-                <div>
-                    <label>Quantidade</label>
-                    <input type="number" name="quantidade" min="1" required>
-                </div>
-                <div>
-                    <label>Valor total da compra</label>
-                    <input type="number" step="0.01" name="valor_compra" min="0" required>
-                </div>
-            </div>
-
-            <label>Origem do pagamento</label>
-            <select name="origem" required>
-                <option value="dinheiro">Caixa / Dinheiro</option>
-                <option value="conta">Conta</option>
-                <option value="capital_dinheiro">Injeção de capital no Dinheiro</option>
-                <option value="capital_conta">Injeção de capital na Conta</option>
-            </select>
-
-            <button type="submit" class="btn verde">Registrar entrada</button>
-        </form>
-    </div>
-
-    <div class="card">
-        <h3>Saldos atuais</h3>
-        <p><strong>Dinheiro:</strong> R$ {{ '%.2f'|format(saldo.dinheiro or 0) }}</p>
-        <p><strong>Conta:</strong> R$ {{ '%.2f'|format(saldo.conta or 0) }}</p>
-        <p><strong>Total:</strong> R$ {{ '%.2f'|format((saldo.dinheiro or 0) + (saldo.conta or 0)) }}</p>
-        <p style="color:#667085;">Use essa tela para lançar compras de forma mais rápida e com menos cliques.</p>
-    </div>
-</div>
-
-<div class="card">
-    <h3>Últimas entradas</h3>
-    {% if movimentos %}
-    <table>
-        <tr>
-            <th>Data</th>
-            <th>Produto ID</th>
-            <th>Tipo</th>
-            <th>Quantidade</th>
-            <th>Motivo</th>
-        </tr>
-        {% for m in movimentos %}
-        <tr>
-            <td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td>
-            <td>{{ m.produto_id }}</td>
-            <td>{{ m.tipo }}</td>
-            <td>{{ m.quantidade }}</td>
-            <td>{{ m.motivo }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-    {% else %}
-    <p>Nenhuma entrada registrada ainda.</p>
-    {% endif %}
-</div>
-
+<div class="hero"><div><h2>Entrada rápida de estoque</h2><p>Use esta tela para lançar compras de forma mais rápida e com menos cliques.</p></div><div class="hero-badge">Reposição simplificada</div></div>
+<div class="resumo-grid"><div class="resumo-item"><h3>Dinheiro</h3><p>R$ {{ '%.2f'|format(saldo.dinheiro or 0) }}</p></div><div class="resumo-item"><h3>Conta</h3><p>R$ {{ '%.2f'|format(saldo.conta or 0) }}</p></div><div class="resumo-item"><h3>Total</h3><p>R$ {{ '%.2f'|format((saldo.dinheiro or 0) + (saldo.conta or 0)) }}</p></div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Registrar entrada</h3><div class="sub">Selecione o produto, informe quantidade e valor total da compra.</div></div></div><form method="POST" class="form-grid"><div class="field" style="grid-column:1/-1;"><label>Buscar produto</label><input type="text" id="busca-produto-entrada" placeholder="Digite o nome do produto para filtrar"></div><div class="field"><label>Produto</label><select name="produto_id" id="produto-entrada-select" required>{% for p in produtos %}<option value="{{ p.id }}">{{ p.nome }} (Estoque atual: {{ p.estoque or 0 }})</option>{% endfor %}</select></div><div class="field"><label>Quantidade</label><input type="number" name="quantidade" min="1" required></div><div class="field"><label>Valor total da compra</label><input type="number" step="0.01" name="valor_compra" min="0" required></div><div class="field"><label>Origem do pagamento</label><select name="origem" required><option value="dinheiro">Caixa / Dinheiro</option><option value="conta">Conta</option><option value="capital_dinheiro">Injeção de capital no Dinheiro</option><option value="capital_conta">Injeção de capital na Conta</option></select></div><div class="field" style="display:flex;align-items:end;"><button type="submit" class="btn btn-success">Registrar entrada</button></div></form></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Últimas entradas</h3><div class="sub">Histórico resumido das últimas entradas de estoque.</div></div></div>{% if movimentos %}<div class="table-wrap"><table><thead><tr><th>Data</th><th>Produto ID</th><th>Tipo</th><th>Quantidade</th><th>Motivo</th></tr></thead><tbody>{% for m in movimentos %}<tr><td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td><td>{{ m.produto_id }}</td><td>{{ m.tipo }}</td><td>{{ m.quantidade }}</td><td>{{ m.motivo }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state">Nenhuma entrada registrada ainda.</div>{% endif %}</div>
 <script>
-(function(){
-  const input = document.getElementById('busca-produto-entrada');
-  const select = document.getElementById('produto-entrada-select');
-  if (!input || !select) return;
-  const original = Array.from(select.options).map(o => ({value:o.value, text:o.text}));
-  input.addEventListener('input', function() {
-      const termo = this.value.toLowerCase();
-      select.innerHTML = '';
-      original.filter(o => o.text.toLowerCase().includes(termo)).forEach(o => {
-          const option = document.createElement('option');
-          option.value = o.value; option.text = o.text; select.appendChild(option);
-      });
-  });
-})();
+(function(){ const input=document.getElementById('busca-produto-entrada'); const select=document.getElementById('produto-entrada-select'); if(!input||!select) return; const original=Array.from(select.options).map(o=>({value:o.value,text:o.text})); input.addEventListener('input', function(){ const termo=this.value.toLowerCase(); select.innerHTML=''; original.filter(o=>o.text.toLowerCase().includes(termo)).forEach(o=>{ const option=document.createElement('option'); option.value=o.value; option.text=o.text; select.appendChild(option);});});})();
 </script>
 {% endblock %}

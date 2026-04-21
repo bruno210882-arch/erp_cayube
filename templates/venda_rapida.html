@@ -1,106 +1,111 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+{% block titulo %}Venda Rápida{% endblock %}
 {% block conteudo %}
-<h2>Venda Rápida</h2>
-
-<div class="grid-2">
-    <div class="card">
-        <h3>Adicionar item</h3>
-        <form method="POST">
-            <input type="hidden" name="acao" value="adicionar">
-
-            <label>Buscar produto</label>
-            <input type="text" id="busca-produto" placeholder="Digite o nome do produto para filtrar">
-
-            <label>Produto</label>
-            <select name="produto_id" id="produto-select" required>
-                {% for p in produtos %}
-                <option value="{{ p.id }}">{{ p.nome }} - R$ {{ '%.2f'|format(p.preco or 0) }} (Estoque: {{ p.estoque or 0 }})</option>
-                {% endfor %}
-            </select>
-
-            <label>Quantidade</label>
-            <input type="number" name="quantidade" min="1" value="1" required>
-
-            <button type="submit">Adicionar ao carrinho</button>
-        </form>
+<div class="hero">
+    <div>
+        <h2>Venda rápida</h2>
+        <p>Monte o carrinho com produtos e itens diversos, finalize como venda direta e mantenha tudo visualmente organizado.</p>
     </div>
+    <div class="hero-badge">PDV simplificado</div>
+</div>
 
-    <div class="card">
-        <h3>Finalizar venda</h3>
-        <form method="POST">
-            <input type="hidden" name="acao" value="finalizar">
+<div class="resumo-grid">
+    <div class="resumo-item"><h3>Itens no carrinho</h3><p>{{ carrinho|length }}</p></div>
+    <div class="resumo-item"><h3>Total da venda</h3><p>R$ {{ "%.2f"|format(total or 0) }}</p></div>
+</div>
 
-            <label>Buscar cliente</label>
-            <input type="text" id="busca-cliente" placeholder="Digite o nome do cliente para filtrar">
-
-            <label>Cliente</label>
-            <select name="cliente_id" id="cliente-select" required>
-                {% for c in clientes %}
-                <option value="{{ c.id }}">{{ c.nome }}{% if c.local %} - {{ c.local }}{% endif %}</option>
-                {% endfor %}
-            </select>
-
-            <label>Forma de pagamento</label>
-            <select name="forma_pagamento" required>
-                <option value="dinheiro">Dinheiro</option>
-                <option value="pix">PIX</option>
-                <option value="fiado">Fiado</option>
-            </select>
-
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <button type="submit" class="btn verde">Finalizar venda</button>
-                <a href="{{ url_for('limpar_venda_rapida') }}" class="btn vermelho">Limpar carrinho</a>
-            </div>
-        </form>
+<div class="card">
+    <div class="toolbar"><div><h3 class="panel-title">Buscar produtos</h3><div class="sub">Adicione itens rapidamente sem sair da tela.</div></div></div>
+    <input type="text" id="buscaProduto" placeholder="Buscar produto..." style="margin-bottom:16px;">
+    <div class="produto-grid">
+        {% for p in produtos %}
+        <div class="produto-card produto-item" data-nome="{{ (p.nome or '')|lower }}">
+            <h3 class="section-title" style="margin-bottom:8px;">{{ p.nome }}</h3>
+            <p class="muted" style="margin-top:0;">Preço: <strong>R$ {{ "%.2f"|format(p.preco or 0) }}</strong> · Estoque: {{ p.estoque or 0 }}</p>
+            <form method="POST" class="actions-inline" style="align-items:end;">
+                <input type="hidden" name="acao" value="add_produto">
+                <input type="hidden" name="produto_id" value="{{ p.id }}">
+                <div class="field" style="margin:0;flex:1;min-width:110px;">
+                    <label>Quantidade</label>
+                    <input type="number" min="1" name="quantidade" value="1" required>
+                </div>
+                <button type="submit">Adicionar</button>
+            </form>
+        </div>
+        {% else %}
+        <div class="empty-state" style="grid-column:1/-1;">Nenhum produto disponível com estoque positivo.</div>
+        {% endfor %}
     </div>
 </div>
 
 <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
-        <h3 style="margin:0;">Carrinho da venda</h3>
-        <div style="font-size:22px;font-weight:bold;">Total: R$ {{ '%.2f'|format(total or 0) }}</div>
-    </div>
+    <div class="toolbar"><div><h3 class="panel-title">Item diverso</h3><div class="sub">Use para lançar um item sem cadastro, sem afetar o estoque.</div></div></div>
+    <form method="POST" class="form-grid">
+        <input type="hidden" name="acao" value="add_diverso">
+        <div class="field">
+            <label>Descrição</label>
+            <input type="text" name="nome_diverso" placeholder="Ex.: Entrega, item avulso" required>
+        </div>
+        <div class="field">
+            <label>Valor</label>
+            <input type="number" step="0.01" min="0.01" name="valor_diverso" required>
+        </div>
+        <div class="field" style="display:flex;align-items:end;">
+            <button type="submit" class="btn btn-success">Adicionar item diverso</button>
+        </div>
+    </form>
+</div>
 
+<div class="card">
+    <div class="toolbar">
+        <div><h3 class="panel-title">Carrinho da venda</h3><div class="sub">Confira os itens antes de finalizar.</div></div>
+        {% if carrinho %}
+        <form method="POST"><input type="hidden" name="acao" value="limpar"><button type="submit" class="btn btn-secondary">Limpar carrinho</button></form>
+        {% endif %}
+    </div>
     {% if carrinho %}
-    <table style="margin-top:16px;">
-        <tr>
-            <th>Produto</th>
-            <th>Quantidade</th>
-            <th>Preço</th>
-            <th>Total</th>
-            <th>Ação</th>
-        </tr>
-        {% for item in carrinho %}
-        <tr>
-            <td>{{ item.nome }}</td>
-            <td>{{ item.quantidade }}</td>
-            <td>R$ {{ '%.2f'|format(item.preco or 0) }}</td>
-            <td>R$ {{ '%.2f'|format((item.preco or 0) * (item.quantidade or 0)) }}</td>
-            <td><a class="btn vermelho" href="{{ url_for('remover_item_venda_rapida', indice=loop.index0) }}">Remover</a></td>
-        </tr>
-        {% endfor %}
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Item</th><th>Quantidade</th><th>Preço</th><th>Total</th><th>Ação</th></tr></thead>
+        <tbody>
+            {% for item in carrinho %}
+            <tr>
+                <td><strong>{{ item.nome }}</strong>{% if not item.produto_id %}<br><span class="pill">Item diverso</span>{% endif %}</td>
+                <td>{{ item.quantidade }}</td>
+                <td>R$ {{ "%.2f"|format(item.preco or 0) }}</td>
+                <td>R$ {{ "%.2f"|format((item.quantidade or 0) * (item.preco or 0)) }}</td>
+                <td>
+                    <form method="POST" onsubmit="return confirm('Remover este item do carrinho?');">
+                        <input type="hidden" name="acao" value="remover"><input type="hidden" name="indice" value="{{ loop.index0 }}"><button type="submit" class="btn btn-danger">Remover</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
+    </div>
     {% else %}
-    <p style="margin-top:16px;">Nenhum item adicionado ainda.</p>
+    <div class="empty-state">Carrinho vazio. Adicione produtos ou um item diverso para iniciar a venda rápida.</div>
     {% endif %}
 </div>
 
+<div class="card">
+    <div class="toolbar"><div><h3 class="panel-title">Finalizar venda</h3><div class="sub">A venda rápida será gravada como venda direta do ERP.</div></div></div>
+    <form method="POST" class="form-grid">
+        <input type="hidden" name="acao" value="finalizar">
+        <div class="field"><label>Cliente</label><select name="cliente_id" required><option value="" selected>Selecione um cliente</option>{% for c in clientes %}<option value="{{ c.id }}">{{ c.nome }}{% if c.local %} — {{ c.local }}{% endif %}</option>{% endfor %}</select><small>Escolher um cliente é obrigatório para manter o histórico organizado.</small></div>
+        <div class="field"><label>Forma de pagamento</label><select name="forma_pagamento" required><option value="dinheiro">Dinheiro</option><option value="pix">PIX</option><option value="transferencia">Transferência</option><option value="fiado">Fiado</option></select></div>
+        <div class="field" style="display:flex;align-items:end;"><button type="submit" class="btn btn-success" {% if not carrinho %}disabled style="opacity:.55;cursor:not-allowed;"{% endif %}>Finalizar venda rápida</button></div>
+    </form>
+</div>
+
 <script>
-function filtrarSelect(inputId, selectId) {
-    const input = document.getElementById(inputId);
-    const select = document.getElementById(selectId);
-    if (!input || !select) return;
-    const original = Array.from(select.options).map(o => ({value:o.value, text:o.text}));
-    input.addEventListener('input', function() {
-        const termo = this.value.toLowerCase();
-        select.innerHTML = '';
-        original.filter(o => o.text.toLowerCase().includes(termo)).forEach(o => {
-            const option = document.createElement('option');
-            option.value = o.value; option.text = o.text; select.appendChild(option);
-        });
+document.getElementById("buscaProduto")?.addEventListener("keyup", function () {
+    const termo = this.value.toLowerCase();
+    document.querySelectorAll(".produto-item").forEach((item) => {
+        const nome = item.dataset.nome || "";
+        item.style.display = nome.includes(termo) ? "block" : "none";
     });
-}
-filtrarSelect('busca-produto', 'produto-select');
-filtrarSelect('busca-cliente', 'cliente-select');
+});
 </script>
 {% endblock %}

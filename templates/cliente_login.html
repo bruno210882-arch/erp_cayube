@@ -38,10 +38,24 @@
             {% endif %}
         {% endwith %}
         <form method="POST">
-            <div class="field"><label>Usuário</label><input type="text" name="usuario" placeholder="Seu usuário" required></div>
+            <div class="field"><label>Telefone</label><input type="text" id="telefone" name="telefone" placeholder="(11) 99999-9999" maxlength="15" required></div>
             <div class="field"><label>Senha</label><input type="password" name="senha" placeholder="Sua senha" required></div>
             <button type="submit" class="btn">Entrar</button>
         </form>
+        <script>
+        (function(){
+            const input = document.getElementById('telefone');
+            if (!input) return;
+            input.addEventListener('input', function(){
+                let v = this.value.replace(/\D/g, '').slice(0,11);
+                if (v.length > 10) {
+                    this.value = v.replace(/(\d{2})(\d{5})(\d{0,4})/, function(_,a,b,c){ return `(${a}) ${b}${c ? '-' + c : ''}`; });
+                } else {
+                    this.value = v.replace(/(\d{2})(\d{4})(\d{0,4})/, function(_,a,b,c){ return `(${a}) ${b}${c ? '-' + c : ''}`; });
+                }
+            });
+        })();
+        </script>
     </div>
 </div>
 </body>

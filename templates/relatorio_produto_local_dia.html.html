@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">Relatório por Produto, Local e Dia</h2>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Data inicial</label>
+                        <input type="date" name="data_inicial" class="form-control" value="{{ filtros.data_inicial }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Data final</label>
+                        <input type="date" name="data_final" class="form-control" value="{{ filtros.data_final }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Local</label>
+                        <select name="local" class="form-select">
+                            <option value="">Todos</option>
+                            {% for l in locais %}
+                            <option value="{{ l }}" {% if filtros.local == l %}selected{% endif %}>{{ l }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Produto</label>
+                        <select name="produto_id" class="form-select">
+                            <option value="">Todos</option>
+                            {% for p in produtos %}
+                            <option value="{{ p.id }}" {% if filtros.produto_id == p.id|string %}selected{% endif %}>{{ p.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-12">
+                        <button class="btn btn-primary">Filtrar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <h5 class="mb-0">Total Geral: R$ {{ "%.2f"|format(total_geral or 0) }}</h5>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Local</th>
+                            <th>Produto</th>
+                            <th>Qtd. Itens</th>
+                            <th>Total Vendido</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in resultados %}
+                        <tr>
+                            <td>{{ r.dia.strftime('%d/%m/%Y') if r.dia else '' }}</td>
+                            <td>{{ r.local or '-' }}</td>
+                            <td>{{ r.produto or '-' }}</td>
+                            <td>{{ r.qtd_itens or 0 }}</td>
+                            <td>R$ {{ "%.2f"|format(r.total_vendido or 0) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">Nenhum registro encontrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

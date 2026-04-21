@@ -1,26 +1,21 @@
 {% extends "base_cliente.html" %}
-{% block titulo %}Minhas Notificações{% endblock %}
 {% block conteudo %}
+<div class="hero"><div><h2>Notificações</h2><p>Acompanhe avisos e atualizações relacionadas ao seu atendimento.</p></div><span class="pill">Comunicação</span></div>
 <div class="card">
-    <h2>Minhas notificações</h2>
-    <p class="muted">Acompanhe aprovações, PIX confirmados e novas entradas de mercadoria.</p>
-    <table>
-        <tr>
-            <th>Data</th>
-            <th>Tipo</th>
-            <th>Mensagem</th>
-            <th>Ação</th>
-        </tr>
+    {% if notificacoes %}
+    <div class="table-wrap"><table>
+        <thead><tr><th>Tipo</th><th>Mensagem</th><th>Data</th><th>Ação</th></tr></thead>
+        <tbody>
         {% for n in notificacoes %}
         <tr>
-            <td>{{ n.data.strftime("%d/%m/%Y %H:%M") if n.data else "" }}</td>
-            <td><span class="badge">{{ (n.tipo or "geral").capitalize() }}</span></td>
+            <td><span class="pill {% if n.lida %}success{% else %}warning{% endif %}">{{ (n.tipo or 'geral')|capitalize }}</span></td>
             <td>{{ n.mensagem }}</td>
-            <td><a class="btn" href="{{ url_for('cliente_marcar_lida', id=n.id) }}">{{ "Abrir" if n.link else "Marcar como lida" }}</a></td>
+            <td>{{ n.data.strftime('%d/%m/%Y %H:%M') if n.data else '' }}</td>
+            <td>{% if not n.lida %}<a class="btn btn-secondary" href="{{ url_for('cliente_marcar_lida', id=n.id) }}">Marcar como lida</a>{% else %}<span class="muted">Lida</span>{% endif %}</td>
         </tr>
-        {% else %}
-        <tr><td colspan="4">Nenhuma notificação encontrada.</td></tr>
         {% endfor %}
-    </table>
+        </tbody>
+    </table></div>
+    {% else %}<div class="empty-state">Nenhuma notificação para este cliente.</div>{% endif %}
 </div>
 {% endblock %}

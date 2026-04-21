@@ -1,46 +1,6 @@
 {% extends 'base.html' %}
 {% block conteudo %}
-
-<h2>📦 Relatório de Estoque</h2>
-
-<h3>Produtos em estoque</h3>
-<table>
-    <tr>
-        <th>ID</th>
-        <th>Produto</th>
-        <th>Preço</th>
-        <th>Custo</th>
-        <th>Estoque</th>
-    </tr>
-    {% for p in produtos %}
-    <tr>
-        <td>{{ p.id }}</td>
-        <td>{{ p.nome }}</td>
-        <td>R$ {{ "%.2f"|format(p.preco or 0) }}</td>
-        <td>R$ {{ "%.2f"|format(p.custo or 0) }}</td>
-        <td>{{ p.estoque or 0 }}</td>
-    </tr>
-    {% endfor %}
-</table>
-
-<h3>Movimentações de estoque</h3>
-<table>
-    <tr>
-        <th>Data</th>
-        <th>Produto ID</th>
-        <th>Tipo</th>
-        <th>Quantidade</th>
-        <th>Motivo</th>
-    </tr>
-    {% for m in movimentos %}
-    <tr>
-        <td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td>
-        <td>{{ m.produto_id }}</td>
-        <td>{{ m.tipo }}</td>
-        <td>{{ m.quantidade }}</td>
-        <td>{{ m.motivo }}</td>
-    </tr>
-    {% endfor %}
-</table>
-
+<div class="hero"><div><h2>Relatório de Estoque</h2><p>Consulte a posição dos produtos e o histórico das movimentações de estoque.</p></div><div class="hero-badge">Estoque consolidado</div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Produtos em estoque</h3><div class="sub">Exibição padronizada da posição atual do estoque.</div></div></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Produto</th><th>Preço</th><th>Custo</th><th>Estoque</th></tr></thead><tbody>{% for p in produtos %}<tr><td>{{ p.id }}</td><td>{{ p.nome }}</td><td>R$ {{ "%.2f"|format(p.preco or 0) }}</td><td>R$ {{ "%.2f"|format(p.custo or 0) }}</td><td>{{ p.estoque or 0 }}</td></tr>{% else %}<tr><td colspan="5">Nenhum produto cadastrado.</td></tr>{% endfor %}</tbody></table></div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Movimentações de estoque</h3><div class="sub">Do registro mais recente para o mais antigo.</div></div></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Produto ID</th><th>Tipo</th><th>Quantidade</th><th>Motivo</th></tr></thead><tbody>{% for m in movimentos %}<tr><td>{{ m.data.strftime('%d/%m/%Y %H:%M') if m.data else '' }}</td><td>{{ m.produto_id }}</td><td>{{ m.tipo }}</td><td>{{ m.quantidade }}</td><td>{{ m.motivo }}</td></tr>{% else %}<tr><td colspan="5">Nenhuma movimentação de estoque encontrada.</td></tr>{% endfor %}</tbody></table></div></div>
 {% endblock %}

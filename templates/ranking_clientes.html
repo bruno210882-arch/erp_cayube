@@ -1,1 +1,5 @@
-<h2>Ranking de Clientes</h2>
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="hero"><div><h2>Ranking de Clientes</h2><p>Clientes ordenados do maior faturamento para o menor.</p></div><div class="hero-badge">Top clientes</div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Ranking geral</h3><div class="sub">Comparativo dos clientes com maior volume financeiro.</div></div></div>{% if ranking %}<div class="table-wrap"><table><thead><tr><th>Posição</th><th>Cliente</th><th>Total</th></tr></thead><tbody>{% for nome, total in ranking %}<tr><td>#{{ loop.index }}</td><td>{{ nome }}</td><td>R$ {{ "%.2f"|format(total or 0) }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state">Nenhum dado disponível para o ranking.</div>{% endif %}</div>
+{% endblock %}

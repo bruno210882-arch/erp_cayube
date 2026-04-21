@@ -1,24 +1,5 @@
 {% extends 'base.html' %}
 {% block conteudo %}
-
-<h2>📅 Fluxo de Caixa Diário</h2>
-
-<table>
-    <tr>
-        <th>Data</th>
-        <th>Entradas</th>
-        <th>Saídas</th>
-        <th>Saldo do Dia</th>
-    </tr>
-
-    {% for item in relatorio %}
-    <tr>
-        <td>{{ item.data.strftime('%d/%m/%Y') }}</td>
-        <td class="success">R$ {{ "%.2f"|format(item.entradas) }}</td>
-        <td class="danger">R$ {{ "%.2f"|format(item.saidas) }}</td>
-        <td><b>R$ {{ "%.2f"|format(item.saldo) }}</b></td>
-    </tr>
-    {% endfor %}
-</table>
-
+<div class="hero"><div><h2>Fluxo de Caixa Diário</h2><p>Entradas, saídas e saldo do dia organizados em ordem cronológica inversa.</p></div><div class="hero-badge">Resumo diário</div></div>
+<div class="card"><div class="toolbar"><div><h3 class="panel-title">Fluxo por dia</h3><div class="sub">Do dia mais recente para o mais antigo.</div></div></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Entradas</th><th>Saídas</th><th>Saldo do Dia</th></tr></thead><tbody>{% for item in relatorio %}<tr><td>{{ item.data.strftime('%d/%m/%Y') }}</td><td class="success">R$ {{ "%.2f"|format(item.entradas) }}</td><td class="danger">R$ {{ "%.2f"|format(item.saidas) }}</td><td><strong>R$ {{ "%.2f"|format(item.saldo) }}</strong></td></tr>{% else %}<tr><td colspan="4">Nenhum movimento encontrado.</td></tr>{% endfor %}</tbody></table></div></div>
 {% endblock %}
