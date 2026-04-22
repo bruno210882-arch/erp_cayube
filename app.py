@@ -348,15 +348,15 @@ def cliente_confirmar_pix(venda_id):
     nome_cliente = venda.cliente.nome if venda.cliente else "Cliente"
 
     db.session.add(Notificacao(
-        titulo="PIX enviado",
-        mensagem=f"{nome_cliente} informou pagamento de R$ {venda.total}",
-        tipo="pix"
+        tipo="pix",
+        mensagem=f"{nome_cliente} informou pagamento de R$ {venda.total}"
     ))
 
     db.session.commit()
 
     flash("Pagamento enviado para conferência!", "success")
     return redirect(url_for("cliente_itens_em_aberto"))
+
 
 @app.route("/relatorio_produto_local_dia", methods=["GET"])
 @login_obrigatorio
@@ -1978,8 +1978,6 @@ def cliente_pix_divida():
 def cliente_notificacoes():
     itens = Notificacao.query.order_by(Notificacao.lida.asc(), Notificacao.data.desc()).all()
     return render_template("cliente_notificacoes.html", notificacoes=itens)
-))
-
 
 @app.route("/pedidos_clientes")
 @login_obrigatorio
