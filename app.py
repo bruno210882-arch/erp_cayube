@@ -10,6 +10,11 @@ from collections import defaultdict
 from sqlalchemy import func, desc
 from flask import session, request, redirect, render_template, flash, url_for
 from sqlalchemy import func
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+def agora_brasil():
+    return datetime.now(ZoneInfo("America/Sao_Paulo"))
 
 import qrcode
 from flask import (
@@ -118,7 +123,7 @@ class Venda(db.Model):
     total = db.Column(db.Float, nullable=False)
     pago = db.Column(db.Boolean, default=False)
     forma_pagamento = db.Column(db.String(20))
-    data = db.Column(db.DateTime, default=datetime.utcnow)
+    data = db.Column(db.DateTime, default=agora_brasil)
     status_pedido = db.Column(db.String(30), default="aguardando_aprovacao")
     status_pix = db.Column(db.String(30), default="pendente")
 
@@ -135,7 +140,7 @@ class Movimento(db.Model):
     valor = db.Column(db.Float, nullable=False)
     origem = db.Column(db.String(20), nullable=False)
     descricao = db.Column(db.String(200))
-    data = db.Column(db.DateTime, default=datetime.utcnow)
+    data = db.Column(db.DateTime, default=agora_brasil)
 
 
 class MovimentoEstoque(db.Model):
@@ -144,7 +149,7 @@ class MovimentoEstoque(db.Model):
     tipo = db.Column(db.String(20), nullable=False)
     quantidade = db.Column(db.Integer, nullable=False)
     motivo = db.Column(db.String(100))
-    data = db.Column(db.DateTime, default=datetime.utcnow)
+    data = db.Column(db.DateTime, default=agora_brasil)
 
 
 class FechamentoCaixa(db.Model):
@@ -162,7 +167,7 @@ class Notificacao(db.Model):
     tipo = db.Column(db.String(50), default="geral")
     mensagem = db.Column(db.String(255), nullable=False)
     lida = db.Column(db.Boolean, default=False)
-    data = db.Column(db.DateTime, default=datetime.utcnow)
+    data = db.Column(db.DateTime, default=agora_brasil)
 
 
 with app.app_context():
@@ -1836,7 +1841,7 @@ def cliente_pedido():
                 total=total,
                 pago=False,
                 forma_pagamento="pix",
-                data=datetime.utcnow(),
+                data=agora_brasil(),
                 status_pedido="aguardando_aprovacao",
                 status_pix="pendente"
             )
