@@ -2,6 +2,8 @@ import os
 import io
 import re
 import base64
+import unicodedata
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, date
 from functools import wraps
 from collections import defaultdict
@@ -176,7 +178,15 @@ def get_saldo():
     return saldo
 
 
+def normalizar_pix_texto(texto, limite):
+    texto = (texto or "").strip().upper()
+    texto = unicodedata.normalize("NFKD", texto).encode("ASCII", "ignore").decode("ASCII")
+    texto = re.sub(r"[^A-Z0-9 /.-]", "", texto)
+    return texto[:limite]
+
+
 def formatar_valor_pix(valor):
+    valor = Decimal(str(valor)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return f"{valor:.2f}"
 
 
@@ -197,35 +207,54 @@ def crc16(payload):
 
 
 def campo_pix(id_campo, valor):
-    tamanho = str(len(valor)).zfill(2)
+    valor = str(valor)
+    tamanho = str(len(valor.encode("utf-8"))).zfill(2)
     return f"{id_campo}{tamanho}{valor}"
 
 
 def gerar_payload_pix(chave, nome, cidade, valor, identificador="***"):
+    chave = (chave or "").strip()
+
+    nome = normalizar_pix_texto(nome, 25)
+    cidade = normalizar_pix_texto(cidade, 15)
+
+    identificador = (identificador or "***").strip().upper()
+    identificador = re.sub(r"[^A-Z0-9*.-]", "", identificador)[:25]
+    if not identificador:
+        identificador = "***"
+
     gui = campo_pix("00", "br.gov.bcb.pix")
     chave_pix = campo_pix("01", chave)
     merchant_account = campo_pix("26", gui + chave_pix)
 
     payload = ""
     payload += campo_pix("00", "01")
-    payload += campo_pix("26", merchant_account)
+    payload += merchant_account
     payload += campo_pix("52", "0000")
     payload += campo_pix("53", "986")
     payload += campo_pix("54", formatar_valor_pix(valor))
     payload += campo_pix("58", "BR")
-    payload += campo_pix("59", nome[:25])
-    payload += campo_pix("60", cidade[:15])
-    payload += campo_pix("62", campo_pix("05", identificador[:25]))
+    payload += campo_pix("59", nome)
+    payload += campo_pix("60", cidade)
+    payload += campo_pix("62", campo_pix("05", identificador))
     payload += "6304"
 
-    codigo_crc = crc16(payload)
-    return payload + codigo_crc
+    return payload + crc16(payload)
 
 
 def gerar_qrcode_base64(texto):
-    qr = qrcode.make(texto)
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(texto)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
     buffer = io.BytesIO()
-    qr.save(buffer, format="PNG")
+    img.save(buffer, format="PNG")
     buffer.seek(0)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
