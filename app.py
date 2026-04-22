@@ -340,9 +340,18 @@ def relatorio_vendas_local_data():
 
 @app.route("/cliente/confirmar_pix/<int:venda_id>", methods=["POST"])
 def cliente_confirmar_pix(venda_id):
+
     venda = Venda.query.get_or_404(venda_id)
 
     venda.status_pix = "aguardando_confirmacao"
+
+    nome_cliente = venda.cliente.nome if venda.cliente else "Cliente"
+
+    db.session.add(Notificacao(
+        titulo="PIX enviado",
+        mensagem=f"{nome_cliente} informou pagamento de R$ {venda.total}",
+        tipo="pix"
+    ))
 
     db.session.commit()
 
@@ -1969,10 +1978,6 @@ def cliente_pix_divida():
 def cliente_notificacoes():
     itens = Notificacao.query.order_by(Notificacao.lida.asc(), Notificacao.data.desc()).all()
     return render_template("cliente_notificacoes.html", notificacoes=itens)
-db.session.add(Notificacao(
-    titulo="PIX enviado",
-    mensagem=f"Cliente {venda.cliente.nome} informou pagamento de R$ {venda.total}",
-    tipo="pix"
 ))
 
 
