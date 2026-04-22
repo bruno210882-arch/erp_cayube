@@ -14,4 +14,13 @@
     {% else %}<div class="empty-state">Nenhum item em aberto para este cliente.</div>{% endif %}
 </div>
 {% if total_aberto > 0 %}<div class="card"><a href="{{ url_for('cliente_pix_divida') }}" class="btn">Pagar valores em aberto via PIX</a></div>{% endif %}
+<td>
+    {% if venda.status_pix == "aguardando_confirmacao" %}
+        <span class="badge bg-warning">Aguardando confirmação</span>
+    {% elif venda.status_pix == "pago" %}
+        <span class="badge bg-success">Pago</span>
+    {% else %}
+        <span class="badge bg-secondary">Pendente</span>
+    {% endif %}
+</td>
 {% endblock %}

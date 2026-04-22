@@ -1,35 +1,63 @@
 {% extends "base_cliente.html" %}
-{% block titulo %}Pagamento PIX do Pedido{% endblock %}
+
 {% block conteudo %}
-<div class="hero">
-    <div>
-        <h2>Pagamento do Pedido via PIX</h2>
-        <p>Use o QR Code ou copie o código PIX para pagar este pedido.</p>
-    </div>
-    <span class="pill success">Pedido #{{ pedido.id }}</span>
-</div>
+<div class="container py-4">
 
-<div class="resumo-grid">
-    <div class="resumo-item"><h3>Cliente</h3><p style="font-size:22px">{{ cliente.nome }}</p></div>
-    <div class="resumo-item"><h3>Valor do pedido</h3><p>R$ {{ "%.2f"|format(valor_aberto or 0) }}</p></div>
-</div>
-
-<div class="card" style="text-align:center;">
-    <h3 style="margin-top:0;">QR Code PIX</h3>
-    <p style="color:var(--muted);">Aponte a câmera do banco ou app de pagamentos.</p>
-    <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code PIX" style="max-width:320px;width:100%;border-radius:18px;border:1px solid var(--line);padding:14px;background:#fff;">
-</div>
-
-<div class="card">
-    <h3 style="margin-top:0;">PIX Copia e Cola</h3>
-    <p style="color:var(--muted);">Caso prefira, copie o código abaixo.</p>
-    <div class="field">
-        <textarea id="pixCode" readonly style="min-height:130px;">{{ payload_pix }}</textarea>
+    <div class="text-center mb-4">
+        <h4>Pagamento via PIX</h4>
+        <p class="text-muted">Finalize seu pagamento com segurança</p>
     </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;">
-        <button class="btn" type="button" onclick="copiarPix()">Copiar código PIX</button>
-        <a href="{{ url_for('cliente_itens_em_aberto') }}" class="btn btn-secondary">Voltar</a>
+
+    <!-- VALOR -->
+    <div class="card shadow-sm text-center mb-4">
+        <div class="card-body">
+            <div class="text-muted small">Valor a pagar</div>
+            <h2 class="text-success">R$ {{ "%.2f"|format(valor or 0) }}</h2>
+        </div>
     </div>
+
+    <!-- QR CODE -->
+    <div class="card shadow-sm text-center mb-4">
+        <div class="card-body">
+            <p class="mb-2">Escaneie o QR Code</p>
+            <img src="data:image/png;base64,{{ qr_code }}" class="img-fluid" style="max-width:250px;">
+        </div>
+    </div>
+
+    <!-- COPIA E COLA -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body text-center">
+
+            <p class="mb-2">Ou copie o código PIX:</p>
+
+            <textarea id="pixCode" class="form-control mb-2" rows="3">{{ payload_pix }}</textarea>
+
+            <button onclick="copiarPix()" class="btn btn-primary w-100">
+                Copiar código PIX
+            </button>
+
+            <small id="msgCopiado" class="text-success d-none">
+                Código copiado!
+            </small>
+
+        </div>
+    </div>
+
+    <!-- AÇÕES -->
+    <div class="card shadow-sm">
+        <div class="card-body text-center">
+
+            <p class="mb-3">Após o pagamento, clique abaixo:</p>
+
+            <form method="POST" action="{{ url_for('cliente_confirmar_pix', venda_id=venda_id) }}">
+                <button class="btn btn-success w-100">
+                    Já fiz o pagamento
+                </button>
+            </form>
+
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -37,8 +65,11 @@ function copiarPix() {
     const campo = document.getElementById("pixCode");
     campo.select();
     campo.setSelectionRange(0, 99999);
+
     document.execCommand("copy");
-    alert("Código PIX copiado com sucesso!");
+
+    document.getElementById("msgCopiado").classList.remove("d-none");
 }
 </script>
+
 {% endblock %}
