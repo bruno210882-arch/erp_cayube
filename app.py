@@ -339,18 +339,18 @@ def relatorio_vendas_local_data():
     )
 
 @app.route("/cliente/confirmar_pix/<int:venda_id>", methods=["POST"])
+@login_cliente_obrigatorio
 def cliente_confirmar_pix(venda_id):
-
     venda = Venda.query.get_or_404(venda_id)
+    cliente = Cliente.query.get(venda.cliente_id) if venda.cliente_id else None
 
     venda.status_pix = "aguardando_confirmacao"
 
-    nome_cliente = venda.cliente.nome if venda.cliente else "Cliente"
+    nome_cliente = cliente.nome if cliente else "Cliente"
 
     db.session.add(Notificacao(
-        titulo="PIX enviado",
-        mensagem=f"{nome_cliente} informou pagamento de R$ {venda.total}",
-        tipo="pix"
+        tipo="pix",
+        mensagem=f"{nome_cliente} informou pagamento de R$ {venda.total}"
     ))
 
     db.session.commit()
@@ -1980,6 +1980,14 @@ def cliente_notificacoes():
     return render_template("cliente_notificacoes.html", notificacoes=itens)
 
 
+@app.route("/cliente/notificacoes/marcar_todas")
+@login_cliente_obrigatorio
+def cliente_marcar_todas_notificacoes():
+    Notificacao.query.filter_by(lida=False).update({"lida": True})
+    db.session.commit()
+    flash("Todas as notificações foram marcadas como lidas.", "success")
+    return redirect(url_for("cliente_notificacoes"))
+
 
 @app.route("/pedidos_clientes")
 @login_obrigatorio
@@ -2140,9 +2148,36 @@ def notificacoes():
     return render_template("notificacoes.html", notificacoes=itens)
 
 
+@app.route("/notificacoes/marcar_todas")
+@login_obrigatorio
+def marcar_todas_notificacoes():
+    Notificacao.query.filter_by(lida=False).update({"lida": True})
+    db.session.commit()
+    flash("Todas as notificações foram marcadas como lidas.", "success")
+    return redirect(url_for("notificacoes"))
+
+
 @app.route("/api/notificacoes")
 @login_obrigatorio
 def api_notificacoes():
+    itens = Notificacao.query.order_by(Notificacao.lida.asc(), Notificacao.data.desc()).all()
+    return jsonify({
+        "itens": [
+            {
+                "id": n.id,
+                "tipo": (n.tipo or "geral").capitalize(),
+                "mensagem": n.mensagem,
+                "lida": bool(n.lida),
+                "data": n.data.strftime("%d/%m/%Y %H:%M") if n.data else ""
+            }
+            for n in itens
+        ]
+    })
+
+
+@app.route("/api/cliente_notificacoes")
+@login_cliente_obrigatorio
+def api_cliente_notificacoes():
     itens = Notificacao.query.order_by(Notificacao.lida.asc(), Notificacao.data.desc()).all()
     return jsonify({
         "itens": [
