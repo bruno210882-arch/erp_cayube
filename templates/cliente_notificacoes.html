@@ -1,14 +1,15 @@
 {% extends "base_cliente.html" %}
 {% block conteudo %}
-<div class="hero"><div><h2>Notificações</h2><p>Acompanhe avisos e atualizações relacionadas ao seu atendimento.</p></div><span class="pill">Comunicação</span></div>
+<div class="hero"><div><h2>Notificações</h2><p>Acompanhe avisos e atualizações relacionadas ao seu atendimento.</p></div><a class="btn btn-secondary" href="{{ url_for('cliente_marcar_todas_notificacoes') }}">Marcar todas como lidas</a></div>
 <div class="card">
+    <div id="lista-notificacoes-cliente">
     {% if notificacoes %}
     <div class="table-wrap"><table>
         <thead><tr><th>Tipo</th><th>Mensagem</th><th>Data</th><th>Ação</th></tr></thead>
         <tbody>
         {% for n in notificacoes %}
         <tr>
-            <td><span class="pill {% if n.lida %}success{% else %}warning{% endif %}">{{ (n.tipo or 'geral')|capitalize }}</span></td>
+            <td><span class="pill {% if (n.tipo or 'geral')|lower == 'pix' %}success{% elif (n.tipo or 'geral')|lower == 'estoque' %}warning{% else %}info{% endif %}">{{ (n.tipo or 'geral')|capitalize }}</span></td>
             <td>{{ n.mensagem }}</td>
             <td>{{ n.data.strftime('%d/%m/%Y %H:%M') if n.data else '' }}</td>
             <td>{% if not n.lida %}<a class="btn btn-secondary" href="{{ url_for('cliente_marcar_lida', id=n.id) }}">Marcar como lida</a>{% else %}<span class="muted">Lida</span>{% endif %}</td>
@@ -17,5 +18,29 @@
         </tbody>
     </table></div>
     {% else %}<div class="empty-state">Nenhuma notificação para este cliente.</div>{% endif %}
+    </div>
 </div>
+<script>
+async function recarregarListaNotificacoesClientePagina(){
+  try{
+    const resposta = await fetch("{{ url_for('api_cliente_notificacoes') }}", {cache:'no-store'});
+    if(!resposta.ok) return;
+    const dados = await resposta.json();
+    const itens = dados.itens || [];
+    const lista = document.getElementById('lista-notificacoes-cliente');
+    if(!lista) return;
+    if(!itens.length){
+      lista.innerHTML = `<div class="empty-state">Nenhuma notificação para este cliente.</div>`;
+      return;
+    }
+    lista.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Mensagem</th><th>Data</th><th>Ação</th></tr></thead><tbody>${itens.map(n => {
+      const tipo = (n.tipo || 'Geral');
+      const tipoLower = tipo.toLowerCase();
+      const pillClass = tipoLower === 'pix' ? 'success' : (tipoLower === 'estoque' ? 'warning' : 'info');
+      return `<tr><td><span class="pill ${pillClass}">${tipo}</span></td><td>${n.mensagem}</td><td>${n.data || ''}</td><td>${!n.lida ? `<a class="btn btn-secondary" href="/cliente/notificacao/lida/${n.id}">Marcar como lida</a>` : `<span class="muted">Lida</span>`}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  }catch(e){ console.log('Erro ao carregar notificações do cliente', e); }
+}
+setInterval(recarregarListaNotificacoesClientePagina, 15000);
+</script>
 {% endblock %}
