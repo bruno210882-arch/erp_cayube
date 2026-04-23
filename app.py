@@ -27,6 +27,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-change-this-secret")
@@ -271,73 +272,84 @@ def gerar_pdf_relatorio_cliente(cliente, vendas, data_inicial="", data_final="")
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
     largura, altura = A4
+    logo_path = os.path.join(app.root_path, "static", "logo.png")
+    data_geracao = agora_brasil().strftime("%d/%m/%Y %H:%M") if "agora_brasil" in globals() else datetime.now().strftime("%d/%m/%Y %H:%M")
 
     def rodape():
         pdf.setFont("Helvetica", 9)
         pdf.setFillColorRGB(0.35, 0.35, 0.35)
+        pdf.line(18 * mm, 22 * mm, largura - 18 * mm, 22 * mm)
         pdf.drawString(18 * mm, 16 * mm, f"PIX: {PIX_CHAVE}")
         pdf.drawString(18 * mm, 11 * mm, f"Recebedor: {PIX_NOME} - {PIX_CIDADE}")
+        pdf.drawRightString(largura - 18 * mm, 16 * mm, f"Gerado em: {data_geracao}")
         pdf.drawRightString(largura - 18 * mm, 11 * mm, f"Pagina {pdf.getPageNumber()}")
-        pdf.line(18 * mm, 19 * mm, largura - 18 * mm, 19 * mm)
+
+    def desenhar_tabela_header(y):
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.setFillColorRGB(0.10, 0.10, 0.10)
+        pdf.drawString(18 * mm, y, "Data")
+        pdf.drawString(46 * mm, y, "Item")
+        pdf.drawString(116 * mm, y, "Forma")
+        pdf.drawRightString(150 * mm, y, "Qtd")
+        pdf.drawString(156 * mm, y, "Status")
+        pdf.drawRightString(192 * mm, y, "Valor")
+        y -= 5 * mm
+        pdf.line(18 * mm, y, 192 * mm, y)
+        return y - 6 * mm
 
     def cabecalho(y_top):
+        if os.path.exists(logo_path):
+            try:
+                pdf.drawImage(ImageReader(logo_path), 18 * mm, y_top - 14 * mm, width=18 * mm, height=18 * mm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
         pdf.setFillColorRGB(0.08, 0.13, 0.25)
         pdf.setFont("Helvetica-Bold", 16)
-        pdf.drawString(18 * mm, y_top, "Relatorio por Cliente")
+        pdf.drawString(40 * mm, y_top, "ERP Cayube")
+        pdf.setFont("Helvetica-Bold", 13)
+        pdf.drawString(40 * mm, y_top - 7 * mm, "Relatorio de Valores em Aberto por Cliente")
         pdf.setFont("Helvetica", 10)
         pdf.setFillColorRGB(0.25, 0.25, 0.25)
-        pdf.drawString(18 * mm, y_top - 7 * mm, f"Cliente: {cliente.nome}")
-        pdf.drawString(18 * mm, y_top - 12 * mm, f"Local: {cliente.local or '-'}")
+        pdf.drawString(18 * mm, y_top - 24 * mm, f"Cliente: {cliente.nome}")
+        pdf.drawString(18 * mm, y_top - 29 * mm, f"Local: {cliente.local or '-'}")
         periodo = f"Periodo: {data_inicial or 'inicio'} a {data_final or 'hoje'}"
-        pdf.drawString(18 * mm, y_top - 17 * mm, periodo)
-        return y_top - 25 * mm
+        pdf.drawString(18 * mm, y_top - 34 * mm, periodo)
+        pdf.drawRightString(largura - 18 * mm, y_top - 24 * mm, f"Gerado em: {data_geracao}")
+        return y_top - 42 * mm
 
     y = cabecalho(280 * mm)
     total = 0
-
-    pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawString(18 * mm, y, "Data")
-    pdf.drawString(48 * mm, y, "Produto")
-    pdf.drawString(122 * mm, y, "Forma")
-    pdf.drawRightString(155 * mm, y, "Qtd")
-    pdf.drawRightString(190 * mm, y, "Total")
-    y -= 5 * mm
-    pdf.line(18 * mm, y, 192 * mm, y)
-    y -= 6 * mm
+    y = desenhar_tabela_header(y)
 
     pdf.setFont("Helvetica", 10)
     for venda, produto in vendas:
-        if y < 35 * mm:
+        if y < 38 * mm:
             rodape()
             pdf.showPage()
             y = cabecalho(280 * mm)
-            pdf.setFont("Helvetica-Bold", 10)
-            pdf.drawString(18 * mm, y, "Data")
-            pdf.drawString(48 * mm, y, "Produto")
-            pdf.drawString(122 * mm, y, "Forma")
-            pdf.drawRightString(155 * mm, y, "Qtd")
-            pdf.drawRightString(190 * mm, y, "Total")
-            y -= 5 * mm
-            pdf.line(18 * mm, y, 192 * mm, y)
-            y -= 6 * mm
+            y = desenhar_tabela_header(y)
             pdf.setFont("Helvetica", 10)
 
         nome_produto = produto.nome if produto else "Item diverso"
         data_str = venda.data.strftime("%d/%m/%Y %H:%M") if venda.data else ""
         forma = (venda.forma_pagamento or "-").capitalize()
+        status = "Pendente" if not venda.pago else "Pago"
+        valor = float(venda.total or 0)
+
         pdf.drawString(18 * mm, y, data_str[:16])
-        pdf.drawString(48 * mm, y, nome_produto[:38])
-        pdf.drawString(122 * mm, y, forma)
-        pdf.drawRightString(155 * mm, y, str(venda.quantidade or 0))
-        pdf.drawRightString(190 * mm, y, f"R$ {float(venda.total or 0):.2f}")
-        total += float(venda.total or 0)
+        pdf.drawString(46 * mm, y, nome_produto[:34])
+        pdf.drawString(116 * mm, y, forma)
+        pdf.drawRightString(150 * mm, y, str(venda.quantidade or 0))
+        pdf.drawString(156 * mm, y, status)
+        pdf.drawRightString(192 * mm, y, f"R$ {valor:.2f}")
+        total += valor
         y -= 6 * mm
 
-    y -= 3 * mm
+    y -= 2 * mm
     pdf.line(18 * mm, y, 192 * mm, y)
     y -= 8 * mm
     pdf.setFont("Helvetica-Bold", 11)
-    pdf.drawRightString(190 * mm, y, f"Total do cliente: R$ {total:.2f}")
+    pdf.drawRightString(192 * mm, y, f"Total em aberto: R$ {total:.2f}")
 
     rodape()
     pdf.save()
@@ -507,7 +519,14 @@ def relatorio_cliente_pdf():
     data_inicial = (request.args.get("data_inicial") or "").strip()
     data_final = (request.args.get("data_final") or "").strip()
 
-    clientes = Cliente.query.order_by(Cliente.nome.asc()).all()
+    clientes = (
+        db.session.query(Cliente)
+        .join(Venda, Venda.cliente_id == Cliente.id)
+        .filter(Venda.pago == False)
+        .distinct()
+        .order_by(Cliente.nome.asc())
+        .all()
+    )
     vendas = []
     cliente = None
     total_cliente = 0
@@ -517,7 +536,10 @@ def relatorio_cliente_pdf():
         query = (
             db.session.query(Venda, Produto)
             .outerjoin(Produto, Venda.produto_id == Produto.id)
-            .filter(Venda.cliente_id == cliente.id)
+            .filter(
+                Venda.cliente_id == cliente.id,
+                Venda.pago == False
+            )
         )
         if data_inicial:
             query = query.filter(func.date(Venda.data) >= data_inicial)
@@ -528,7 +550,7 @@ def relatorio_cliente_pdf():
 
         if request.args.get("formato") == "pdf":
             pdf_buffer = gerar_pdf_relatorio_cliente(cliente, vendas, data_inicial, data_final)
-            nome_arquivo = f"relatorio_cliente_{cliente.id}.pdf"
+            nome_arquivo = f"relatorio_cliente_aberto_{cliente.id}.pdf"
             return send_file(pdf_buffer, as_attachment=True, download_name=nome_arquivo, mimetype="application/pdf")
 
     return render_template(
