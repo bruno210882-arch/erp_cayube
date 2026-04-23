@@ -2180,27 +2180,6 @@ def api_cliente_notificacoes():
         ]
     })
 
-
-@app.route("/cliente/notificacoes/marcar_todas")
-@login_cliente_obrigatorio
-def cliente_marcar_todas_notificacoes():
-    Notificacao.query.filter_by(lida=False).update({"lida": True})
-    db.session.commit()
-    flash("Todas as notificações foram marcadas como lidas.", "success")
-    return redirect(url_for("cliente_notificacoes"))
-
-
-@app.route("/cliente/notificacoes/marcar_todas")
-@login_cliente_obrigatorio
-def cliente_marcar_todas_notificacoes():
-    Notificacao.query.filter_by(lida=False).update({"lida": True})
-    db.session.commit()
-    flash("Todas as notificações foram marcadas como lidas.", "success")
-    return redirect(url_for("cliente_notificacoes"))
-
-
-
-
 @app.route("/validar_pix_cliente/<int:venda_id>")
 @login_obrigatorio
 def validar_pix_cliente(venda_id):
