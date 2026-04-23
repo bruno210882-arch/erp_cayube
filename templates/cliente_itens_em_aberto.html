@@ -31,7 +31,7 @@
             <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') if venda.data else '' }}</td>
             <td>
                 {% if venda.forma_pagamento == 'pix' and not venda.pago and venda.status_pix != 'aguardando_confirmacao' %}
-                    <a class="btn" href="{{ url_for('cliente_pix') }}">Pagar por PIX</a>
+                    <form method="post" action="{{ url_for('cliente_confirmar_pix', venda_id=venda.id) }}"><button class="btn" type="submit">Informar pagamento PIX</button></form>
                 {% elif venda.status_pix == 'aguardando_confirmacao' %}
                     <span class="muted">Pagamento enviado</span>
                 {% else %}
@@ -44,5 +44,14 @@
     </table></div>
     {% else %}<div class="empty-state">Nenhum item em aberto para este cliente.</div>{% endif %}
 </div>
-{% if total_aberto > 0 %}<div class="card"><a href="{{ url_for('cliente_pix_divida') }}" class="btn">Pagar valores em aberto via PIX</a></div>{% endif %}
+{% if total_aberto > 0 %}
+<div class="card">
+    <div class="actions-inline">
+        <a href="{{ url_for('cliente_pix_divida') }}" class="btn">Gerar PIX do fiado</a>
+        <form method="post" action="{{ url_for('cliente_confirmar_pix_divida') }}">
+            <button class="btn btn-secondary" type="submit">Já paguei o fiado via PIX</button>
+        </form>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

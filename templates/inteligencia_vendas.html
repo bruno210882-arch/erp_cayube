@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block titulo %}Inteligência de Vendas{% endblock %}
+{% block conteudo %}
+<div class="hero">
+    <div>
+        <h2>Inteligência de vendas</h2>
+        <p>Leitura rápida dos melhores clientes, principais devedores, produtos parados e sugestões automáticas de reposição.</p>
+    </div>
+    <div class="hero-badge">Painel analítico</div>
+</div>
+
+<div class="grid-cards">
+    <div class="card">
+        <h3 class="section-title">🏆 Clientes que mais compram</h3>
+        {% if top_compradores %}
+            {% for nome, total, pedidos in top_compradores %}
+                <p><strong>{{ nome }}</strong> — R$ {{ "%.2f"|format(total or 0) }} <span class="muted">({{ pedidos or 0 }} venda(s))</span></p>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">Sem dados suficientes para montar o ranking.</div>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h3 class="section-title">⚠️ Clientes que mais devem</h3>
+        {% if top_devedores %}
+            {% for nome, total, lancamentos in top_devedores %}
+                <p><strong>{{ nome }}</strong> — R$ {{ "%.2f"|format(total or 0) }} <span class="muted">({{ lancamentos or 0 }} lançamento(s))</span></p>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">Nenhum cliente com fiado pendente.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid-cards">
+    <div class="card">
+        <h3 class="section-title">📦 Produtos parados ou sem giro recente</h3>
+        {% if produtos_parados %}
+        <div class="table-wrap"><table>
+            <thead><tr><th>Produto</th><th>Estoque</th><th>Preço</th><th>Última venda</th></tr></thead>
+            <tbody>
+            {% for item in produtos_parados %}
+            <tr>
+                <td>{{ item.nome }}</td>
+                <td>{{ item.estoque or 0 }}</td>
+                <td>R$ {{ "%.2f"|format(item.preco or 0) }}</td>
+                <td>{{ item.ultima_venda.strftime('%d/%m/%Y %H:%M') if item.ultima_venda else 'Sem venda registrada' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}
+            <div class="empty-state">Sem produtos suficientes para análise.</div>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h3 class="section-title">🚚 Sugestão automática de reposição</h3>
+        {% if sugestoes_reposicao %}
+            {% for item in sugestoes_reposicao %}
+                <p><strong>{{ item.nome }}</strong> — estoque {{ item.estoque }}, vendeu {{ item.qtd_vendida }} e a sugestão é repor {{ item.repor_sugerido }} unidade(s).</p>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">Nenhum item precisa de reposição com base nas vendas atuais.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

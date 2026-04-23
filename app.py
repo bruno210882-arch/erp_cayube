@@ -3,6 +3,7 @@ import io
 import re
 import base64
 import unicodedata
+import logging
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, date
 from functools import wraps
@@ -31,6 +32,8 @@ from reportlab.lib.utils import ImageReader
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-change-this-secret")
+logging.basicConfig(level=logging.INFO)
+app.logger.setLevel(logging.INFO)
 
 PIX_CHAVE = "35548112899"
 PIX_NOME = "BRUNA RAFAELA SOARES SILVA"
@@ -261,6 +264,196 @@ def get_saldo():
         db.session.add(saldo)
         db.session.commit()
     return saldo
+
+
+def criar_notificacao(tipo, mensagem, venda_id=None):
+    db.session.add(Notificacao(
+        tipo=(tipo or "geral")[:50],
+        mensagem=(mensagem or "")[:255],
+        venda_id=venda_id
+    ))
+
+
+def atualizar_divida_cliente(cliente):
+    if not cliente:
+        return 0
+    total = db.session.query(func.sum(Venda.total)).filter(
+        Venda.cliente_id == cliente.id,
+        Venda.pago == False,
+        Venda.forma_pagamento == "fiado"
+    ).scalar() or 0
+    cliente.divida = float(total or 0)
+    return cliente.divida
+
+
+def registrar_recebimento(venda, forma, criar_movimento=True, observacao=None):
+    forma = (forma or "").strip().lower()
+    if forma not in ["dinheiro", "transferencia", "pix"]:
+        raise ValueError("Forma de recebimento inválida.")
+
+    saldo = get_saldo()
+    cliente = Cliente.query.get(venda.cliente_id) if venda.cliente_id else None
+
+    if venda.pago:
+        return False
+
+    venda.pago = True
+    venda.status_pix = "pago"
+    venda.status_pedido = venda.status_pedido or "aprovado"
+    venda.forma_pagamento = forma
+
+    valor = float(venda.total or 0)
+    if forma == "dinheiro":
+        saldo.dinheiro = float(saldo.dinheiro or 0) + valor
+        origem_mov = "dinheiro"
+    else:
+        saldo.conta = float(saldo.conta or 0) + valor
+        origem_mov = "conta"
+
+    if cliente:
+        atualizar_divida_cliente(cliente)
+
+    if criar_movimento:
+        db.session.add(Movimento(
+            tipo="entrada",
+            valor=valor,
+            origem=origem_mov,
+            descricao=(observacao or f"Recebimento da venda #{venda.id}")[:200],
+            data=agora_brasil()
+        ))
+
+    return True
+
+
+def montar_dashboard():
+    hoje = date.today()
+    saldo = get_saldo()
+
+    vendas_hoje = db.session.query(func.sum(Venda.total)).filter(
+        func.date(Venda.data) == hoje,
+        Venda.pago == True
+    ).scalar() or 0
+
+    total_vendas = db.session.query(func.sum(Venda.total)).filter(
+        Venda.pago == True
+    ).scalar() or 0
+
+    total_fiado = db.session.query(func.sum(Venda.total)).filter(
+        Venda.pago == False,
+        Venda.forma_pagamento == "fiado"
+    ).scalar() or 0
+
+    total_a_receber = db.session.query(func.sum(Venda.total)).filter(
+        Venda.pago == False
+    ).scalar() or 0
+
+    pedidos_pendentes = Venda.query.filter_by(status_pedido="aguardando_aprovacao").count()
+    pix_pendentes = Venda.query.filter(
+        Venda.forma_pagamento == "pix",
+        Venda.pago == False,
+        Venda.status_pix.in_(["pendente", "aguardando_confirmacao"])
+    ).count()
+
+    caixa_total = float(saldo.dinheiro or 0) + float(saldo.conta or 0)
+
+    top_devedores = db.session.query(
+        Cliente.nome,
+        func.sum(Venda.total).label("total")
+    ).join(Venda).filter(
+        Venda.pago == False,
+        Venda.forma_pagamento == "fiado"
+    ).group_by(Cliente.nome).order_by(desc("total")).limit(5).all()
+
+    top_clientes = db.session.query(
+        Cliente.nome,
+        func.sum(Venda.total).label("total")
+    ).join(Venda).filter(
+        Venda.pago == True
+    ).group_by(Cliente.nome).order_by(desc("total")).limit(5).all()
+
+    produtos_mais_vendidos = db.session.query(
+        Produto.nome,
+        func.sum(Venda.quantidade).label("quantidade")
+    ).join(Venda, Venda.produto_id == Produto.id).filter(
+        Venda.status_pedido.in_(["aprovado", "venda_direta"])
+    ).group_by(Produto.nome).order_by(desc("quantidade")).limit(5).all()
+
+    antigos = Venda.query.filter(
+        Venda.pago == False
+    ).order_by(Venda.data.asc(), Venda.id.asc()).limit(5).all()
+
+    estoque_baixo = Produto.query.filter(Produto.estoque < 5).order_by(Produto.estoque.asc(), Produto.nome.asc()).all()
+
+    return {
+        "vendas_hoje": float(vendas_hoje or 0),
+        "total_vendas": float(total_vendas or 0),
+        "total_fiado": float(total_fiado or 0),
+        "total_a_receber": float(total_a_receber or 0),
+        "caixa_total": float(caixa_total or 0),
+        "pedidos_pendentes": pedidos_pendentes,
+        "pix_pendentes": pix_pendentes,
+        "top_devedores": top_devedores,
+        "top_clientes": top_clientes,
+        "produtos_mais_vendidos": produtos_mais_vendidos,
+        "antigos": antigos,
+        "estoque_baixo": estoque_baixo,
+    }
+
+
+def montar_inteligencia_vendas():
+    top_compradores = db.session.query(
+        Cliente.nome,
+        func.sum(Venda.total).label("total"),
+        func.count(Venda.id).label("pedidos")
+    ).join(Venda).filter(
+        Venda.pago == True
+    ).group_by(Cliente.nome).order_by(desc("total")).limit(10).all()
+
+    top_devedores = db.session.query(
+        Cliente.nome,
+        func.sum(Venda.total).label("total"),
+        func.count(Venda.id).label("lancamentos")
+    ).join(Venda).filter(
+        Venda.pago == False,
+        Venda.forma_pagamento == "fiado"
+    ).group_by(Cliente.nome).order_by(desc("total")).limit(10).all()
+
+    produtos_parados = db.session.query(
+        Produto.nome,
+        Produto.estoque,
+        Produto.preco,
+        func.max(Venda.data).label("ultima_venda")
+    ).outerjoin(Venda, Venda.produto_id == Produto.id).group_by(
+        Produto.id, Produto.nome, Produto.estoque, Produto.preco
+    ).order_by(Produto.estoque.desc(), Produto.nome.asc()).limit(20).all()
+
+    sugestoes_reposicao = []
+    candidatos = db.session.query(
+        Produto.id,
+        Produto.nome,
+        Produto.estoque,
+        func.coalesce(func.sum(Venda.quantidade), 0).label("qtd_vendida")
+    ).outerjoin(Venda, Venda.produto_id == Produto.id).group_by(
+        Produto.id, Produto.nome, Produto.estoque
+    ).order_by(desc("qtd_vendida")).all()
+
+    for item in candidatos:
+        if (item.qtd_vendida or 0) > 0 and (item.estoque or 0) <= max(3, int((item.qtd_vendida or 0) * 0.3)):
+            sugestoes_reposicao.append({
+                "nome": item.nome,
+                "estoque": int(item.estoque or 0),
+                "qtd_vendida": int(item.qtd_vendida or 0),
+                "repor_sugerido": max(5, int(item.qtd_vendida or 0) - int(item.estoque or 0))
+            })
+        if len(sugestoes_reposicao) >= 10:
+            break
+
+    return {
+        "top_compradores": top_compradores,
+        "top_devedores": top_devedores,
+        "produtos_parados": produtos_parados,
+        "sugestoes_reposicao": sugestoes_reposicao,
+    }
 
 
 def normalizar_pix_texto(texto, limite):
@@ -529,11 +722,7 @@ def cliente_confirmar_pix(venda_id):
     venda.status_pix = "aguardando_confirmacao"
     nome_cliente = cliente.nome if cliente else "Cliente"
 
-    db.session.add(Notificacao(
-        tipo="pix",
-        mensagem=f"{nome_cliente} informou pagamento de R$ {venda.total}",
-        venda_id=venda.id
-    ))
+    criar_notificacao("pix", f"{nome_cliente} informou pagamento PIX da venda #{venda.id} no valor de R$ {venda.total}", venda.id)
 
     db.session.commit()
 
@@ -1066,7 +1255,49 @@ def confirmar_pix(venda_id):
 @app.route("/validar_pix_cliente/<int:venda_id>")
 @login_obrigatorio
 def validar_pix_cliente(venda_id):
+    if venda_id < 0:
+        return redirect(url_for("confirmar_pix_divida_cliente", cliente_id=abs(venda_id)))
     return redirect(url_for("confirmar_pix", venda_id=venda_id))
+
+
+@app.route("/confirmar_pix_divida_cliente/<int:cliente_id>")
+@login_obrigatorio
+def confirmar_pix_divida_cliente(cliente_id):
+    cliente = Cliente.query.get_or_404(cliente_id)
+    saldo = get_saldo()
+    try:
+        vendas_abertas = Venda.query.filter_by(
+            cliente_id=cliente.id,
+            pago=False,
+            forma_pagamento="fiado"
+        ).all()
+
+        if not vendas_abertas:
+            flash("Esse cliente não possui fiado pendente para validar.", "warning")
+            return redirect(url_for("notificacoes"))
+
+        total_recebido = 0
+        for venda in vendas_abertas:
+            if registrar_recebimento(venda, "pix", criar_movimento=False):
+                total_recebido += float(venda.total or 0)
+
+        if total_recebido:
+            saldo.conta = float(saldo.conta or 0) + total_recebido
+            db.session.add(Movimento(
+                tipo="entrada",
+                valor=total_recebido,
+                origem="conta",
+                descricao=f"PIX validado de fiado - Cliente: {cliente.nome}"[:200],
+                data=agora_brasil()
+            ))
+        atualizar_divida_cliente(cliente)
+        db.session.commit()
+        flash("PIX do fiado validado com sucesso.", "success")
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception("Erro ao validar PIX de fiado: %s", e)
+        flash("Não foi possível validar o PIX do fiado.", "danger")
+    return redirect(url_for("notificacoes"))
 
 
 @app.route("/baixa_estoque", methods=["GET", "POST"])
@@ -1440,8 +1671,8 @@ def quitar_fiado_cliente(cliente_id):
     saldo = get_saldo()
     forma = (request.form.get("forma") or "").strip().lower()
 
-    if forma not in ["dinheiro", "transferencia"]:
-        flash("Escolha Dinheiro ou Transferência.", "warning")
+    if forma not in ["dinheiro", "transferencia", "pix"]:
+        flash("Escolha Dinheiro, Transferência ou PIX.", "warning")
         return redirect(url_for("fiado"))
 
     vendas_abertas = Venda.query.filter_by(
@@ -2376,6 +2607,22 @@ def cliente_pix_divida():
     )
 
 
+@app.route("/cliente/confirmar_pix_divida", methods=["POST"])
+@login_cliente_obrigatorio
+def cliente_confirmar_pix_divida():
+    cliente = Cliente.query.get_or_404(session["cliente_id"])
+    valor_aberto = float(cliente.divida or 0)
+
+    if valor_aberto <= 0:
+        flash("Você não possui valores em aberto.", "warning")
+        return redirect(url_for("cliente_itens_em_aberto"))
+
+    criar_notificacao("pix", f"{cliente.nome} informou pagamento PIX do fiado no valor de R$ {valor_aberto:.2f}", -cliente.id)
+    db.session.commit()
+    flash("Pagamento do fiado enviado para conferência!", "success")
+    return redirect(url_for("cliente_itens_em_aberto"))
+
+
 @app.route("/cliente/notificacoes")
 @login_cliente_obrigatorio
 def cliente_notificacoes():
@@ -2479,6 +2726,13 @@ def painel_financeiro():
 # ===============================
 # 🏆 RANKING CLIENTES
 # ===============================
+@app.route("/inteligencia_vendas")
+@login_obrigatorio
+def inteligencia_vendas():
+    dados = montar_inteligencia_vendas()
+    return render_template("inteligencia_vendas.html", **dados)
+
+
 @app.route("/ranking_clientes")
 @login_obrigatorio
 def ranking_clientes():

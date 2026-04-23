@@ -2,24 +2,26 @@
 {% block conteudo %}
 <div class="hero">
     <div>
-        <h2>Dashboard</h2>
-        <p>Navegação setorizada ativa. Use os blocos abaixo para acessar as áreas principais do sistema com mais agilidade e mantendo um padrão visual único.</p>
+        <h2>Dashboard profissional</h2>
+        <p>Visão central do negócio com financeiro, pedidos, estoque e indicadores de venda em tempo real.</p>
     </div>
-    <div class="hero-badge">Painel central do ERP</div>
+    <div class="hero-badge">Controle diário do ERP</div>
 </div>
 
 <div class="resumo-grid">
-    <div class="resumo-item"><h3>Vendas Hoje</h3><p>R$ {{ "%.2f"|format(vendas_hoje or 0) }}</p></div>
-    <div class="resumo-item"><h3>Caixa Atual</h3><p>R$ {{ "%.2f"|format(caixa_total or 0) }}</p></div>
-    <div class="resumo-item"><h3>Fiado em Aberto</h3><p>R$ {{ "%.2f"|format(total_fiado or 0) }}</p></div>
-    <div class="resumo-item"><h3>Faturamento Geral</h3><p>R$ {{ "%.2f"|format(total_vendas or 0) }}</p></div>
+    <div class="resumo-item"><h3>Faturamento do dia</h3><p>R$ {{ "%.2f"|format(vendas_hoje or 0) }}</p></div>
+    <div class="resumo-item"><h3>Caixa atual</h3><p>R$ {{ "%.2f"|format(caixa_total or 0) }}</p></div>
+    <div class="resumo-item"><h3>Total fiado</h3><p>R$ {{ "%.2f"|format(total_fiado or 0) }}</p></div>
+    <div class="resumo-item"><h3>Total a receber</h3><p>R$ {{ "%.2f"|format(total_a_receber or 0) }}</p></div>
+    <div class="resumo-item"><h3>Pedidos pendentes</h3><p>{{ pedidos_pendentes or 0 }}</p></div>
+    <div class="resumo-item"><h3>PIX pendentes</h3><p>{{ pix_pendentes or 0 }}</p></div>
 </div>
 
 <div class="card">
     <div class="toolbar">
         <div>
             <h3 class="panel-title">Menu setorizado</h3>
-            <div class="sub">Clique em um setor para abrir somente os atalhos daquela área.</div>
+            <div class="sub">Atalhos organizados para operação, estoque, financeiro e inteligência de vendas.</div>
         </div>
     </div>
 
@@ -30,6 +32,7 @@
         <a href="{{ url_for('vendas_diretas') }}">Vendas diretas</a>
         <a href="{{ url_for('pedidos_clientes') }}">Pedidos dos clientes</a>
         <a href="{{ url_for('fiado') }}">Fiado</a>
+        <a href="{{ url_for('notificacoes') }}">Notificações</a>
     </div>
 
     <div class="setor-card" onclick="toggleSetor('estoque')">📦 Estoque e inventário</div>
@@ -41,19 +44,19 @@
         <a href="{{ url_for('baixa_estoque') }}">Baixa sem venda</a>
     </div>
 
-    <div class="setor-card" onclick="toggleSetor('cadastros')">👥 Cadastros</div>
-    <div id="cadastros" class="setor-conteudo">
-        <a href="{{ url_for('clientes') }}">Clientes</a>
-        <a href="{{ url_for('usuarios') }}">Usuários</a>
-        <a href="{{ url_for('notificacoes') }}">Notificações</a>
-    </div>
-
     <div class="setor-card" onclick="toggleSetor('financeiro')">💰 Financeiro e relatórios</div>
     <div id="financeiro" class="setor-conteudo">
         <a href="{{ url_for('movimentacao') }}">Movimentação</a>
         <a href="{{ url_for('painel_financeiro') }}">Painel financeiro</a>
         <a href="{{ url_for('relatorios_gerais') }}">Relatórios gerais</a>
         <a href="{{ url_for('fechamento_caixa') }}">Fechamento de caixa</a>
+    </div>
+
+    <div class="setor-card" onclick="toggleSetor('inteligencia')">🧠 Inteligência de vendas</div>
+    <div id="inteligencia" class="setor-conteudo">
+        <a href="{{ url_for('inteligencia_vendas') }}">Painel de inteligência</a>
+        <a href="{{ url_for('ranking_clientes') }}">Ranking de clientes</a>
+        <a href="{{ url_for('clientes') }}">Carteira de clientes</a>
     </div>
 </div>
 
@@ -67,11 +70,30 @@
         {% endfor %}
     </div>
     <div class="card">
-        <h3 class="section-title">⏳ Dívidas antigas</h3>
+        <h3 class="section-title">🏆 Top clientes</h3>
+        {% for nome, total in top_clientes %}
+            <p><strong>{{ nome }}</strong> — R$ {{ "%.2f"|format(total or 0) }}</p>
+        {% else %}
+            <div class="empty-state">Ainda não há clientes com compras finalizadas.</div>
+        {% endfor %}
+    </div>
+    <div class="card">
+        <h3 class="section-title">📈 Produtos mais vendidos</h3>
+        {% for nome, quantidade in produtos_mais_vendidos %}
+            <p><strong>{{ nome }}</strong> — {{ quantidade or 0 }} unidade(s)</p>
+        {% else %}
+            <div class="empty-state">Ainda não há produtos vendidos para gerar ranking.</div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="grid-cards">
+    <div class="card">
+        <h3 class="section-title">⏳ Pendências mais antigas</h3>
         {% for v in antigos %}
             <p>Venda #{{ v.id }} — R$ {{ "%.2f"|format(v.total or 0) }}</p>
         {% else %}
-            <div class="empty-state">Nenhuma dívida antiga encontrada.</div>
+            <div class="empty-state">Nenhuma pendência antiga encontrada.</div>
         {% endfor %}
     </div>
     <div class="card">
