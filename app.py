@@ -22,7 +22,7 @@ from flask import (
     url_for, session, flash, send_file, jsonify
 )
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func, text
+from sqlalchemy import func, text, inspect
 from werkzeug.security import generate_password_hash, check_password_hash
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -36,13 +36,16 @@ PIX_CHAVE = "35548112899"
 PIX_NOME = "BRUNA RAFAELA SOARES SILVA"
 PIX_CIDADE = "CAIEIRAS"
 
+os.makedirs(app.instance_path, exist_ok=True)
+
 uri = os.getenv("DATABASE_URL")
 
 if uri:
     if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "postgresql://", 1)
 else:
-    uri = "sqlite:///instance/erp_cayube.db"
+    sqlite_path = os.path.join(app.instance_path, "erp_cayube.db")
+    uri = f"sqlite:///{sqlite_path}"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -175,8 +178,80 @@ class Notificacao(db.Model):
     data = db.Column(db.DateTime, default=agora_brasil)
 
 
-with app.app_context():
+def sql_boolean_true():
+    return "TRUE"
+
+
+def garantir_coluna_se_nao_existir(nome_tabela, nome_coluna, definicao_sql, updates_sql=None):
+    insp = inspect(db.engine)
+    tabelas = set(insp.get_table_names())
+
+    if nome_tabela not in tabelas:
+        return
+
+    colunas = {col["name"] for col in insp.get_columns(nome_tabela)}
+
+    if nome_coluna not in colunas:
+        with db.engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE {nome_tabela} ADD COLUMN {nome_coluna} {definicao_sql}"))
+
+    if updates_sql:
+        with db.engine.begin() as conn:
+            for sql in updates_sql:
+                conn.execute(text(sql))
+
+
+def garantir_estrutura_banco():
     db.create_all()
+
+    verdadeiro = sql_boolean_true()
+
+    garantir_coluna_se_nao_existir(
+        "cliente",
+        "senha_hash",
+        "VARCHAR(255)",
+    )
+    garantir_coluna_se_nao_existir(
+        "cliente",
+        "ativo",
+        "BOOLEAN DEFAULT TRUE",
+        updates_sql=[f"UPDATE cliente SET ativo = {verdadeiro} WHERE ativo IS NULL"],
+    )
+    garantir_coluna_se_nao_existir(
+        "cliente",
+        "trocar_senha_primeiro_acesso",
+        "BOOLEAN DEFAULT TRUE",
+        updates_sql=[f"UPDATE cliente SET trocar_senha_primeiro_acesso = {verdadeiro} WHERE trocar_senha_primeiro_acesso IS NULL"],
+    )
+
+    garantir_coluna_se_nao_existir(
+        "venda",
+        "data",
+        "TIMESTAMP",
+        updates_sql=["UPDATE venda SET data = CURRENT_TIMESTAMP WHERE data IS NULL"],
+    )
+    garantir_coluna_se_nao_existir(
+        "venda",
+        "status_pedido",
+        "VARCHAR(30) DEFAULT 'aguardando_aprovacao'",
+        updates_sql=["UPDATE venda SET status_pedido = 'aguardando_aprovacao' WHERE status_pedido IS NULL OR TRIM(status_pedido) = ''"],
+    )
+    garantir_coluna_se_nao_existir(
+        "venda",
+        "status_pix",
+        "VARCHAR(30) DEFAULT 'pendente'",
+        updates_sql=["UPDATE venda SET status_pix = 'pendente' WHERE status_pix IS NULL OR TRIM(status_pix) = ''"],
+    )
+
+    garantir_coluna_se_nao_existir(
+        "notificacao",
+        "venda_id",
+        "INTEGER",
+    )
+
+
+with app.app_context():
+    garantir_estrutura_banco()
 
 
 def get_saldo():
@@ -696,18 +771,7 @@ def criar_tabelas():
 @admin_obrigatorio
 def atualizar_banco():
     try:
-        db.create_all()
-        with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS senha_hash VARCHAR(255)"))
-            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE"))
-            conn.execute(text("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS trocar_senha_primeiro_acesso BOOLEAN DEFAULT TRUE"))
-            conn.execute(text("UPDATE cliente SET ativo = TRUE WHERE ativo IS NULL OR ativo = FALSE"))
-            conn.execute(text("UPDATE cliente SET trocar_senha_primeiro_acesso = TRUE WHERE trocar_senha_primeiro_acesso IS NULL"))
-            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS data TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
-            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pedido VARCHAR(30) DEFAULT 'aguardando_aprovacao'"))
-            conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pix VARCHAR(30) DEFAULT 'pendente'"))
-            conn.execute(text("ALTER TABLE notificacao ADD COLUMN IF NOT EXISTS venda_id INTEGER"))
-            conn.commit()
+        garantir_estrutura_banco()
         return "Banco atualizado com sucesso!"
     except Exception as e:
         return f"Erro ao atualizar banco: {str(e)}"
@@ -872,6 +936,177 @@ def index():
         antigos=antigos,
         estoque_baixo=estoque_baixo
     )
+
+@app.route("/notificacoes")
+@login_obrigatorio
+def notificacoes():
+    itens = Notificacao.query.order_by(
+        Notificacao.lida.asc(),
+        Notificacao.data.desc()
+    ).all()
+    return render_template("notificacoes.html", notificacoes=itens)
+
+
+@app.route("/pedidos_clientes")
+@login_obrigatorio
+def pedidos_clientes():
+    pedidos = (
+        db.session.query(Venda, Cliente, Produto)
+        .join(Cliente, Venda.cliente_id == Cliente.id)
+        .outerjoin(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.status_pedido != "venda_direta")
+        .order_by(Venda.data.desc(), Venda.id.desc())
+        .all()
+    )
+    return render_template("pedidos_clientes.html", pedidos=pedidos)
+
+
+@app.route("/aprovar_pedido/<int:venda_id>", methods=["GET", "POST"])
+@login_obrigatorio
+def aprovar_pedido(venda_id):
+    venda = Venda.query.get_or_404(venda_id)
+    cliente = Cliente.query.get(venda.cliente_id) if venda.cliente_id else None
+    produto = Produto.query.get(venda.produto_id) if venda.produto_id else None
+
+    if request.method == "POST":
+        if venda.status_pedido != "aguardando_aprovacao":
+            flash("Esse pedido já foi tratado.", "warning")
+            return redirect(url_for("pedidos_clientes"))
+
+        forma = (request.form.get("forma_pagamento") or "").strip().lower()
+        if forma not in ["pix", "fiado", "dinheiro", "transferencia"]:
+            flash("Escolha uma forma de pagamento válida.", "danger")
+            return redirect(url_for("aprovar_pedido", venda_id=venda.id))
+
+        if produto and (produto.estoque or 0) < (venda.quantidade or 0):
+            flash("Estoque insuficiente para aprovar esse pedido.", "danger")
+            return redirect(url_for("pedidos_clientes"))
+
+        saldo = get_saldo()
+
+        if produto:
+            produto.estoque = (produto.estoque or 0) - (venda.quantidade or 0)
+
+        venda.forma_pagamento = forma
+        venda.status_pedido = "aprovado"
+
+        if forma == "dinheiro":
+            venda.pago = True
+            venda.status_pix = "pago"
+            saldo.dinheiro = (saldo.dinheiro or 0) + float(venda.total or 0)
+        elif forma == "transferencia":
+            venda.pago = True
+            venda.status_pix = "pago"
+            saldo.conta = (saldo.conta or 0) + float(venda.total or 0)
+        elif forma == "pix":
+            venda.pago = False
+            venda.status_pix = "pendente"
+        else:  # fiado
+            venda.pago = False
+            venda.status_pix = "pendente"
+            if cliente:
+                cliente.divida = float(cliente.divida or 0) + float(venda.total or 0)
+
+        db.session.add(Notificacao(
+            tipo="pedido",
+            mensagem=f"Pedido #{venda.id} aprovado para {cliente.nome if cliente else 'cliente'} - forma: {forma.capitalize()}",
+            venda_id=venda.id
+        ))
+
+        db.session.commit()
+        flash("Pedido aprovado com sucesso.", "success")
+        return redirect(url_for("pedidos_clientes"))
+
+    return render_template("aprovar_pedido.html", venda=venda, cliente=cliente, produto=produto)
+
+
+@app.route("/recusar_pedido/<int:venda_id>")
+@login_obrigatorio
+def recusar_pedido(venda_id):
+    venda = Venda.query.get_or_404(venda_id)
+
+    if venda.status_pedido == "aguardando_aprovacao":
+        venda.status_pedido = "recusado"
+        venda.status_pix = "cancelado"
+        db.session.add(Notificacao(
+            tipo="pedido",
+            mensagem=f"Pedido #{venda.id} recusado.",
+            venda_id=venda.id
+        ))
+        db.session.commit()
+        flash("Pedido recusado com sucesso.", "success")
+    else:
+        flash("Esse pedido já foi tratado.", "warning")
+
+    return redirect(url_for("pedidos_clientes"))
+
+
+@app.route("/confirmar_pix/<int:venda_id>")
+@login_obrigatorio
+def confirmar_pix(venda_id):
+    venda = Venda.query.get_or_404(venda_id)
+    saldo = get_saldo()
+
+    if (venda.forma_pagamento or "").lower() != "pix":
+        flash("Essa venda não está configurada como PIX.", "warning")
+        return redirect(url_for("pedidos_clientes"))
+
+    if not venda.pago:
+        venda.pago = True
+        venda.status_pix = "pago"
+        saldo.conta = (saldo.conta or 0) + float(venda.total or 0)
+        db.session.commit()
+        flash("PIX confirmado com sucesso.", "success")
+    else:
+        flash("Esse PIX já foi confirmado.", "warning")
+
+    return redirect(url_for("pedidos_clientes"))
+
+
+@app.route("/validar_pix_cliente/<int:venda_id>")
+@login_obrigatorio
+def validar_pix_cliente(venda_id):
+    return redirect(url_for("confirmar_pix", venda_id=venda_id))
+
+
+@app.route("/baixa_estoque", methods=["GET", "POST"])
+@login_obrigatorio
+def baixa_estoque():
+    if request.method == "POST":
+        try:
+            produto_id = int(request.form.get("produto_id", 0))
+            quantidade = int(request.form.get("quantidade", 0))
+            motivo = (request.form.get("motivo") or "").strip()
+
+            produto = Produto.query.get_or_404(produto_id)
+
+            if quantidade <= 0:
+                flash("Informe uma quantidade válida.", "danger")
+                return redirect(url_for("baixa_estoque"))
+
+            if (produto.estoque or 0) < quantidade:
+                flash("Estoque insuficiente para registrar a baixa.", "danger")
+                return redirect(url_for("baixa_estoque"))
+
+            produto.estoque = (produto.estoque or 0) - quantidade
+            db.session.add(MovimentoEstoque(
+                produto_id=produto.id,
+                tipo="baixa",
+                quantidade=quantidade,
+                motivo=motivo or "Baixa manual",
+                data=agora_brasil()
+            ))
+            db.session.commit()
+            flash("Baixa de estoque registrada com sucesso.", "success")
+            return redirect(url_for("baixa_estoque"))
+        except Exception as e:
+            db.session.rollback()
+            return f"Erro ao registrar baixa de estoque: {str(e)}"
+
+    produtos = Produto.query.order_by(Produto.nome.asc()).all()
+    movimentos = MovimentoEstoque.query.filter_by(tipo="baixa").order_by(MovimentoEstoque.data.desc(), MovimentoEstoque.id.desc()).all()
+    return render_template("baixa_estoque.html", produtos=produtos, movimentos=movimentos)
+
 
 @app.route("/clientes")
 @login_obrigatorio
