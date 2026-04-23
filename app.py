@@ -2144,8 +2144,50 @@ def cliente_pix_divida():
 @app.route("/cliente/notificacoes")
 @login_cliente_obrigatorio
 def cliente_notificacoes():
-    itens = Notificacao.query.order_by(Notificacao.lida.asc(), Notificacao.data.desc()).all()
+    itens = Notificacao.query.order_by(
+        Notificacao.lida.asc(),
+        Notificacao.data.desc()
+    ).all()
     return render_template("cliente_notificacoes.html", notificacoes=itens)
+
+@app.route("/notificacoes/marcar_todas")
+@login_obrigatorio
+def marcar_todas_notificacoes():
+    Notificacao.query.filter_by(lida=False).update({"lida": True})
+    db.session.commit()
+    flash("Todas as notificações foram marcadas como lidas.", "success")
+    return redirect(url_for("notificacoes"))
+
+
+@app.route("/api/cliente_notificacoes")
+@login_cliente_obrigatorio
+def api_cliente_notificacoes():
+    itens = Notificacao.query.order_by(
+        Notificacao.lida.asc(),
+        Notificacao.data.desc()
+    ).all()
+
+    return jsonify({
+        "itens": [
+            {
+                "id": n.id,
+                "tipo": n.tipo or "geral",
+                "mensagem": n.mensagem,
+                "lida": bool(n.lida),
+                "data": n.data.strftime("%d/%m/%Y %H:%M") if n.data else ""
+            }
+            for n in itens
+        ]
+    })
+
+
+@app.route("/cliente/notificacoes/marcar_todas")
+@login_cliente_obrigatorio
+def cliente_marcar_todas_notificacoes():
+    Notificacao.query.filter_by(lida=False).update({"lida": True})
+    db.session.commit()
+    flash("Todas as notificações foram marcadas como lidas.", "success")
+    return redirect(url_for("cliente_notificacoes"))
 
 
 @app.route("/cliente/notificacoes/marcar_todas")
