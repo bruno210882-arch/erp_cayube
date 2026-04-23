@@ -16,7 +16,12 @@
                         <div class="muted">{{ n.data.strftime('%d/%m/%Y %H:%M') if n.data else '' }}</div>
                     </div>
                     <div>
-                        {% if not n.lida %}
+                        {% if (n.tipo or 'geral')|lower == 'pix' and n.venda_id %}
+                        <div class="actions-inline">
+                            <a class="btn" href="{{ url_for('validar_pix_cliente', venda_id=n.venda_id) }}">Validar PIX</a>
+                            {% if not n.lida %}<a class="btn btn-success" href="{{ url_for('marcar_lida', id=n.id) }}">Marcar como lida</a>{% endif %}
+                        </div>
+                        {% elif not n.lida %}
                         <a class="btn btn-success" href="{{ url_for('marcar_lida', id=n.id) }}">Marcar como lida</a>
                         {% else %}
                         <span class="muted">Lida</span>
@@ -55,7 +60,7 @@ async function recarregarListaNotificacoes() {
                         <div style="font-weight:700; margin-bottom:6px;">${n.mensagem}</div>
                         <div class="muted">${n.data || ''}</div>
                     </div>
-                    <div>${!n.lida ? `<a class="btn btn-success" href="/notificacao/lida/${n.id}">Marcar como lida</a>` : `<span class="muted">Lida</span>`}</div>
+                    <div>${(n.tipo || '').toLowerCase() === 'pix' && n.venda_id ? `<div class="actions-inline"><a class="btn" href="/validar_pix_cliente/${n.venda_id}">Validar PIX</a>${!n.lida ? `<a class="btn btn-success" href="/notificacao/lida/${n.id}">Marcar como lida</a>` : ''}</div>` : (!n.lida ? `<a class="btn btn-success" href="/notificacao/lida/${n.id}">Marcar como lida</a>` : `<span class="muted">Lida</span>`)}</div>
                 </div>
             </div>`;
         }).join('');

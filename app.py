@@ -170,6 +170,7 @@ class Notificacao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tipo = db.Column(db.String(50), default="geral")
     mensagem = db.Column(db.String(255), nullable=False)
+    venda_id = db.Column(db.Integer, nullable=True)
     lida = db.Column(db.Boolean, default=False)
     data = db.Column(db.DateTime, default=agora_brasil)
 
@@ -440,15 +441,23 @@ def relatorio_vendas_local_data():
 @login_cliente_obrigatorio
 def cliente_confirmar_pix(venda_id):
     venda = Venda.query.get_or_404(venda_id)
+
+    if venda.cliente_id != session.get("cliente_id"):
+        flash("Acesso inválido.", "danger")
+        return redirect(url_for("cliente_itens_em_aberto"))
+
+    if venda.pago:
+        flash("Essa venda já está paga.", "warning")
+        return redirect(url_for("cliente_itens_em_aberto"))
+
     cliente = Cliente.query.get(venda.cliente_id) if venda.cliente_id else None
-
     venda.status_pix = "aguardando_confirmacao"
-
     nome_cliente = cliente.nome if cliente else "Cliente"
 
     db.session.add(Notificacao(
         tipo="pix",
-        mensagem=f"{nome_cliente} informou pagamento de R$ {venda.total}"
+        mensagem=f"{nome_cliente} informou pagamento de R$ {venda.total}",
+        venda_id=venda.id
     ))
 
     db.session.commit()
@@ -697,6 +706,7 @@ def atualizar_banco():
             conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS data TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
             conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pedido VARCHAR(30) DEFAULT 'aguardando_aprovacao'"))
             conn.execute(text("ALTER TABLE venda ADD COLUMN IF NOT EXISTS status_pix VARCHAR(30) DEFAULT 'pendente'"))
+            conn.execute(text("ALTER TABLE notificacao ADD COLUMN IF NOT EXISTS venda_id INTEGER"))
             conn.commit()
         return "Banco atualizado com sucesso!"
     except Exception as e:
@@ -2147,6 +2157,42 @@ def cliente_marcar_todas_notificacoes():
     return redirect(url_for("cliente_notificacoes"))
 
 
+
+
+@app.route("/validar_pix_cliente/<int:venda_id>")
+@login_obrigatorio
+def validar_pix_cliente(venda_id):
+    venda = Venda.query.get_or_404(venda_id)
+    saldo = get_saldo()
+    cliente = Cliente.query.get(venda.cliente_id) if venda.cliente_id else None
+
+    if venda.status_pix != "aguardando_confirmacao":
+        flash("Esse pagamento não está aguardando confirmação.", "warning")
+        return redirect(url_for("notificacoes"))
+
+    venda.status_pix = "pago"
+    venda.pago = True
+    venda.forma_pagamento = "pix"
+    saldo.conta = (saldo.conta or 0) + (venda.total or 0)
+
+    if cliente:
+        cliente.divida = max((cliente.divida or 0) - (venda.total or 0), 0)
+
+    notif = Notificacao.query.filter_by(venda_id=venda.id, tipo="pix").order_by(Notificacao.data.desc()).first()
+    if notif:
+        notif.lida = True
+        notif.mensagem = f"Pagamento PIX validado para {cliente.nome if cliente else 'cliente'} - R$ {venda.total}"
+
+    db.session.add(Notificacao(
+        tipo="pix",
+        mensagem=f"PIX validado e lançado no caixa: R$ {venda.total}",
+        venda_id=venda.id
+    ))
+
+    db.session.commit()
+    flash("Pagamento PIX validado com sucesso.", "success")
+    return redirect(url_for("fiado"))
+
 @app.route("/pedidos_clientes")
 @login_obrigatorio
 def pedidos_clientes():
@@ -2369,7 +2415,8 @@ def api_notificacoes():
                 "tipo": (n.tipo or "geral").capitalize(),
                 "mensagem": n.mensagem,
                 "lida": bool(n.lida),
-                "data": n.data.strftime("%d/%m/%Y %H:%M") if n.data else ""
+                "data": n.data.strftime("%d/%m/%Y %H:%M") if n.data else "",
+                "venda_id": n.venda_id
             }
             for n in itens
         ]
@@ -2387,7 +2434,8 @@ def api_cliente_notificacoes():
                 "tipo": (n.tipo or "geral").capitalize(),
                 "mensagem": n.mensagem,
                 "lida": bool(n.lida),
-                "data": n.data.strftime("%d/%m/%Y %H:%M") if n.data else ""
+                "data": n.data.strftime("%d/%m/%Y %H:%M") if n.data else "",
+                "venda_id": n.venda_id
             }
             for n in itens
         ]
