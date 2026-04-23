@@ -24,6 +24,9 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, text
 from werkzeug.security import generate_password_hash, check_password_hash
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-change-this-secret")
@@ -264,6 +267,84 @@ def gerar_qrcode_base64(texto):
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
+def gerar_pdf_relatorio_cliente(cliente, vendas, data_inicial="", data_final=""):
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    largura, altura = A4
+
+    def rodape():
+        pdf.setFont("Helvetica", 9)
+        pdf.setFillColorRGB(0.35, 0.35, 0.35)
+        pdf.drawString(18 * mm, 16 * mm, f"PIX: {PIX_CHAVE}")
+        pdf.drawString(18 * mm, 11 * mm, f"Recebedor: {PIX_NOME} - {PIX_CIDADE}")
+        pdf.drawRightString(largura - 18 * mm, 11 * mm, f"Pagina {pdf.getPageNumber()}")
+        pdf.line(18 * mm, 19 * mm, largura - 18 * mm, 19 * mm)
+
+    def cabecalho(y_top):
+        pdf.setFillColorRGB(0.08, 0.13, 0.25)
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(18 * mm, y_top, "Relatorio por Cliente")
+        pdf.setFont("Helvetica", 10)
+        pdf.setFillColorRGB(0.25, 0.25, 0.25)
+        pdf.drawString(18 * mm, y_top - 7 * mm, f"Cliente: {cliente.nome}")
+        pdf.drawString(18 * mm, y_top - 12 * mm, f"Local: {cliente.local or '-'}")
+        periodo = f"Periodo: {data_inicial or 'inicio'} a {data_final or 'hoje'}"
+        pdf.drawString(18 * mm, y_top - 17 * mm, periodo)
+        return y_top - 25 * mm
+
+    y = cabecalho(280 * mm)
+    total = 0
+
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(18 * mm, y, "Data")
+    pdf.drawString(48 * mm, y, "Produto")
+    pdf.drawString(122 * mm, y, "Forma")
+    pdf.drawRightString(155 * mm, y, "Qtd")
+    pdf.drawRightString(190 * mm, y, "Total")
+    y -= 5 * mm
+    pdf.line(18 * mm, y, 192 * mm, y)
+    y -= 6 * mm
+
+    pdf.setFont("Helvetica", 10)
+    for venda, produto in vendas:
+        if y < 35 * mm:
+            rodape()
+            pdf.showPage()
+            y = cabecalho(280 * mm)
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(18 * mm, y, "Data")
+            pdf.drawString(48 * mm, y, "Produto")
+            pdf.drawString(122 * mm, y, "Forma")
+            pdf.drawRightString(155 * mm, y, "Qtd")
+            pdf.drawRightString(190 * mm, y, "Total")
+            y -= 5 * mm
+            pdf.line(18 * mm, y, 192 * mm, y)
+            y -= 6 * mm
+            pdf.setFont("Helvetica", 10)
+
+        nome_produto = produto.nome if produto else "Item diverso"
+        data_str = venda.data.strftime("%d/%m/%Y %H:%M") if venda.data else ""
+        forma = (venda.forma_pagamento or "-").capitalize()
+        pdf.drawString(18 * mm, y, data_str[:16])
+        pdf.drawString(48 * mm, y, nome_produto[:38])
+        pdf.drawString(122 * mm, y, forma)
+        pdf.drawRightString(155 * mm, y, str(venda.quantidade or 0))
+        pdf.drawRightString(190 * mm, y, f"R$ {float(venda.total or 0):.2f}")
+        total += float(venda.total or 0)
+        y -= 6 * mm
+
+    y -= 3 * mm
+    pdf.line(18 * mm, y, 192 * mm, y)
+    y -= 8 * mm
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawRightString(190 * mm, y, f"Total do cliente: R$ {total:.2f}")
+
+    rodape()
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
+
 @app.route("/manifest-erp.webmanifest")
 def manifest_erp():
     return jsonify({
@@ -416,6 +497,56 @@ def relatorio_produto_local_dia():
         },
         total_geral=total_geral
     )
+
+
+
+@app.route("/relatorio_cliente_pdf")
+@login_obrigatorio
+def relatorio_cliente_pdf():
+    cliente_id = (request.args.get("cliente_id") or "").strip()
+    data_inicial = (request.args.get("data_inicial") or "").strip()
+    data_final = (request.args.get("data_final") or "").strip()
+
+    clientes = Cliente.query.order_by(Cliente.nome.asc()).all()
+    vendas = []
+    cliente = None
+    total_cliente = 0
+
+    if cliente_id:
+        cliente = Cliente.query.get_or_404(int(cliente_id))
+        query = (
+            db.session.query(Venda, Produto)
+            .outerjoin(Produto, Venda.produto_id == Produto.id)
+            .filter(Venda.cliente_id == cliente.id)
+        )
+        if data_inicial:
+            query = query.filter(func.date(Venda.data) >= data_inicial)
+        if data_final:
+            query = query.filter(func.date(Venda.data) <= data_final)
+        vendas = query.order_by(Venda.data.desc(), Venda.id.desc()).all()
+        total_cliente = sum(float(v.total or 0) for v, _ in vendas)
+
+        if request.args.get("formato") == "pdf":
+            pdf_buffer = gerar_pdf_relatorio_cliente(cliente, vendas, data_inicial, data_final)
+            nome_arquivo = f"relatorio_cliente_{cliente.id}.pdf"
+            return send_file(pdf_buffer, as_attachment=True, download_name=nome_arquivo, mimetype="application/pdf")
+
+    return render_template(
+        "relatorio_cliente_pdf.html",
+        clientes=clientes,
+        cliente=cliente,
+        vendas=vendas,
+        total_cliente=total_cliente,
+        filtros={
+            "cliente_id": cliente_id,
+            "data_inicial": data_inicial,
+            "data_final": data_final,
+        },
+        pix_chave=PIX_CHAVE,
+        pix_nome=PIX_NOME,
+        pix_cidade=PIX_CIDADE,
+    )
+
 
 @app.route("/manifest-cliente.webmanifest")
 def manifest_cliente():
@@ -2008,27 +2139,70 @@ def pedidos_clientes():
 
     return render_template("pedidos_clientes.html", pedidos=pedidos)
 
-@app.route("/aprovar_pedido/<int:venda_id>")
+@app.route("/aprovar_pedido/<int:venda_id>", methods=["GET", "POST"])
 @login_obrigatorio
 def aprovar_pedido(venda_id):
     venda = Venda.query.get_or_404(venda_id)
     produto = Produto.query.get(venda.produto_id)
+    cliente = Cliente.query.get(venda.cliente_id) if venda.cliente_id else None
+    saldo = get_saldo()
 
     if venda.status_pedido != "aguardando_aprovacao":
         flash("Esse pedido já foi analisado.", "warning")
+        return redirect(url_for("pedidos_clientes"))
+
+    forma_pagamento = (request.form.get("forma_pagamento") or request.args.get("forma_pagamento") or "pix").strip().lower()
+    if forma_pagamento not in ["dinheiro", "transferencia", "pix", "fiado"]:
+        flash("Escolha uma forma de pagamento válida.", "danger")
         return redirect(url_for("pedidos_clientes"))
 
     if not produto or produto.estoque < venda.quantidade:
         flash("Estoque insuficiente para aprovar o pedido.", "danger")
         return redirect(url_for("pedidos_clientes"))
 
+    produto.estoque -= venda.quantidade
     venda.status_pedido = "aprovado"
+    venda.forma_pagamento = forma_pagamento
+
+    if forma_pagamento == "pix":
+        venda.pago = False
+        venda.status_pix = "pendente"
+    elif forma_pagamento == "fiado":
+        venda.pago = False
+        venda.status_pix = "pendente"
+        if cliente:
+            cliente.divida = (cliente.divida or 0) + (venda.total or 0)
+    elif forma_pagamento == "dinheiro":
+        venda.pago = True
+        venda.status_pix = "pago"
+        saldo.dinheiro += venda.total or 0
+    else:
+        venda.pago = True
+        venda.status_pix = "pago"
+        saldo.conta += venda.total or 0
+
+    db.session.add(MovimentoEstoque(
+        produto_id=produto.id,
+        tipo="saida",
+        quantidade=venda.quantidade,
+        motivo=f"Pedido cliente aprovado - {forma_pagamento}"
+    ))
+
+    db.session.add(Notificacao(
+        tipo="pedido",
+        mensagem=f"Pedido de {cliente.nome if cliente else 'cliente'} aprovado como {forma_pagamento}."
+    ))
+
+    if produto.estoque is not None and produto.estoque <= 5:
+        db.session.add(Notificacao(
+            tipo="estoque",
+            mensagem=f"Produto {produto.nome} está com estoque baixo: {produto.estoque}"
+        ))
+
     db.session.commit()
 
     flash("Pedido aprovado com sucesso.", "success")
     return redirect(url_for("pedidos_clientes"))
-
-
 @app.route("/recusar_pedido/<int:venda_id>")
 @login_obrigatorio
 def recusar_pedido(venda_id):
@@ -2292,7 +2466,7 @@ def vendas_diretas():
         db.session.query(Venda, Cliente, Produto)
         .join(Cliente, Venda.cliente_id == Cliente.id)
         .outerjoin(Produto, Venda.produto_id == Produto.id)
-        .filter(Venda.status_pedido == "venda_direta")
+        .filter(Venda.status_pedido.in_(["venda_direta", "aprovado"]))
     )
 
     if data_inicial:

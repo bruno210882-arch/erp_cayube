@@ -10,19 +10,20 @@
 <div class="card">
     {% if pedidos %}
     <div class="table-wrap"><table>
-        <thead><tr><th>ID</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Total</th><th>Pedido</th><th>PIX</th><th>Data</th><th>Ações</th></tr></thead>
+        <thead><tr><th>ID</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Total</th><th>Pedido</th><th>PIX</th><th>Forma</th><th>Data</th><th>Ações</th></tr></thead>
         <tbody>
             {% for venda, cliente, produto in pedidos %}
             <tr>
                 <td>#{{ venda.id }}</td>
                 <td><strong>{{ cliente.nome }}</strong><br><span class="muted">{{ cliente.local or 'Sem local' }}</span></td>
-                <td>{{ produto.nome }}</td>
+                <td>{{ produto.nome if produto else "Item diverso" }}</td>
                 <td>{{ venda.quantidade }}</td>
                 <td>R$ {{ "%.2f"|format(venda.total or 0) }}</td>
                 <td>{% if venda.status_pedido == 'aguardando_aprovacao' %}<span class="pill warning">Aguardando</span>{% elif venda.status_pedido == 'aprovado' %}<span class="pill success">Aprovado</span>{% elif venda.status_pedido == 'recusado' %}<span class="pill danger">Recusado</span>{% else %}<span class="pill">{{ venda.status_pedido }}</span>{% endif %}</td>
-                <td>{% if venda.status_pix == 'pago' %}<span class="pill success">Pago</span>{% elif venda.status_pix == 'cancelado' %}<span class="pill danger">Cancelado</span>{% else %}<span class="pill warning">{{ venda.status_pix }}</span>{% endif %}</td>
+                <td>{% if venda.status_pix == 'pago' %}<span class="pill success">Pago</span>{% elif venda.status_pix == 'cancelado' %}<span class="pill danger">Cancelado</span>{% elif venda.status_pix == 'aguardando_confirmacao' %}<span class="pill warning">Aguardando confirmação</span>{% else %}<span class="pill warning">{{ venda.status_pix }}</span>{% endif %}</td>
+                <td>{{ (venda.forma_pagamento or '-')|capitalize }}</td>
                 <td>{{ venda.data.strftime('%d/%m/%Y %H:%M') if venda.data else '' }}</td>
-                <td><div class="actions-inline">{% if venda.status_pedido == "aguardando_aprovacao" %}<a href="{{ url_for('aprovar_pedido', venda_id=venda.id) }}" class="btn btn-success">Aprovar</a><a href="{{ url_for('recusar_pedido', venda_id=venda.id) }}" class="btn btn-danger">Recusar</a>{% endif %}{% if venda.status_pedido == "aprovado" and venda.status_pix != "pago" %}<a href="{{ url_for('confirmar_pix', venda_id=venda.id) }}" class="btn">Confirmar PIX</a>{% endif %}</div></td>
+                <td><div class="actions-inline">{% if venda.status_pedido == "aguardando_aprovacao" %}<form method="post" action="{{ url_for('aprovar_pedido', venda_id=venda.id) }}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><select name="forma_pagamento" required><option value="">Forma</option><option value="pix">PIX</option><option value="fiado">Fiado</option><option value="dinheiro">Dinheiro</option><option value="transferencia">Transferência</option></select><button type="submit" class="btn btn-success">Aprovar</button><a href="{{ url_for('recusar_pedido', venda_id=venda.id) }}" class="btn btn-danger">Recusar</a></form>{% endif %}{% if venda.status_pedido == "aprovado" and venda.status_pix != "pago" and venda.forma_pagamento == 'pix' %}<a href="{{ url_for('confirmar_pix', venda_id=venda.id) }}" class="btn">Confirmar PIX</a>{% endif %}</div></td>
             </tr>
             {% endfor %}
         </tbody>
