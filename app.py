@@ -2415,16 +2415,6 @@ def notificacoes():
     itens = Notificacao.query.order_by(Notificacao.lida.asc(), Notificacao.data.desc()).all()
     return render_template("notificacoes.html", notificacoes=itens)
 
-
-@app.route("/notificacoes/marcar_todas")
-@login_obrigatorio
-def marcar_todas_notificacoes():
-    Notificacao.query.filter_by(lida=False).update({"lida": True})
-    db.session.commit()
-    flash("Todas as notificações foram marcadas como lidas.", "success")
-    return redirect(url_for("notificacoes"))
-
-
 @app.route("/api/notificacoes")
 @login_obrigatorio
 def api_notificacoes():
