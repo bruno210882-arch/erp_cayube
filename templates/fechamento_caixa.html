@@ -1,7 +1,117 @@
 {% extends 'base.html' %}
 {% block conteudo %}
-<div class="hero"><div><h2>Fechamento de Caixa</h2><p>Concilie o dia e registre o fechamento com observação opcional.</p></div><div class="hero-badge">Rotina operacional</div></div>
-<div class="resumo-grid"><div class="resumo-item"><h3>Entradas do Dia</h3><p>R$ {{ "%.2f"|format(entradas or 0) }}</p></div><div class="resumo-item"><h3>Saídas do Dia</h3><p>R$ {{ "%.2f"|format(saidas or 0) }}</p></div><div class="resumo-item"><h3>Saldo Final</h3><p>R$ {{ "%.2f"|format(saldo_final or 0) }}</p></div></div>
-<div class="card"><div class="toolbar"><div><h3 class="panel-title">Registrar fechamento</h3><div class="sub">Grave o saldo inicial e uma observação para o dia atual.</div></div></div><form method="POST" class="form-grid"><div class="field"><label>Saldo Inicial do Dia</label><input type="number" step="0.01" name="saldo_inicial" value="{{ fechamento.saldo_inicial if fechamento else 0 }}" required></div><div class="field"><label>Observação</label><input type="text" name="observacao" value="{{ fechamento.observacao if fechamento else '' }}"></div><div class="field" style="display:flex;align-items:end;"><button type="submit">Salvar Fechamento</button></div></form></div>
-{% if fechamento %}<div class="card"><div class="toolbar"><div><h3 class="panel-title">Fechamento registrado</h3><div class="sub">Resumo do fechamento salvo para a data atual.</div></div></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Saldo Inicial</th><th>Entradas</th><th>Saídas</th><th>Saldo Final</th><th>Observação</th></tr></thead><tbody><tr><td>{{ fechamento.data.strftime('%d/%m/%Y') }}</td><td>R$ {{ "%.2f"|format(fechamento.saldo_inicial) }}</td><td>R$ {{ "%.2f"|format(fechamento.entradas) }}</td><td>R$ {{ "%.2f"|format(fechamento.saidas) }}</td><td>R$ {{ "%.2f"|format(fechamento.saldo_final) }}</td><td>{{ fechamento.observacao }}</td></tr></tbody></table></div></div>{% endif %}
+<div class="hero">
+  <div>
+    <h2>Fechamento de Caixa</h2>
+    <p>Concilie o dia, confira diferença de caixa e gere relatórios profissionais em PDF.</p>
+  </div>
+  <div class="hero-badge">Rotina financeira</div>
+</div>
+
+<div class="resumo-grid">
+  <div class="resumo-item"><h3>Entradas do Dia</h3><p>R$ {{ "%.2f"|format(entradas or 0) }}</p></div>
+  <div class="resumo-item"><h3>Saídas do Dia</h3><p>R$ {{ "%.2f"|format(saidas or 0) }}</p></div>
+  <div class="resumo-item"><h3>Saldo Conferido</h3><p>R$ {{ "%.2f"|format(saldo_final or 0) }}</p></div>
+  <div class="resumo-item"><h3>Saldo Previsto</h3><p>R$ {{ "%.2f"|format(saldo_previsto or 0) }}</p></div>
+  <div class="resumo-item"><h3>Diferença</h3><p class="{{ 'danger' if diferenca < 0 else 'success' if diferenca > 0 else '' }}">R$ {{ "%.2f"|format(diferenca or 0) }}</p></div>
+</div>
+
+<div class="grid-cards">
+  <div class="card">
+    <div class="toolbar">
+      <div>
+        <h3 class="panel-title">Registrar fechamento</h3>
+        <div class="sub">Informe o saldo inicial do dia. O sistema usa entradas e saídas já registradas para consolidar o fechamento.</div>
+      </div>
+    </div>
+    <form method="POST" class="form-grid">
+      <div class="field">
+        <label>Saldo Inicial do Dia</label>
+        <input type="number" step="0.01" name="saldo_inicial" value="{{ fechamento.saldo_inicial if fechamento else 0 }}" required>
+      </div>
+      <div class="field">
+        <label>Observação</label>
+        <input type="text" name="observacao" value="{{ fechamento.observacao if fechamento else '' }}" placeholder="Ex.: conferido com caixa físico">
+      </div>
+      <div class="field" style="display:flex;align-items:end;">
+        <button type="submit">Salvar Fechamento</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <div>
+        <h3 class="panel-title">Relatórios rápidos</h3>
+        <div class="sub">Baixe PDFs profissionais com logo e rodapé.</div>
+      </div>
+    </div>
+    <div class="actions-inline">
+      <a class="btn-secondary" href="{{ url_for('relatorio_fechamento_caixa_pdf') }}">PDF do Fechamento</a>
+      <a class="btn-secondary" href="{{ url_for('relatorio_devedores_pdf') }}">PDF Devedores</a>
+      <a class="btn-secondary" href="{{ url_for('relatorio_vendas_pdf') }}">PDF Vendas</a>
+    </div>
+  </div>
+</div>
+
+{% if fechamento %}
+<div class="card">
+  <div class="toolbar">
+    <div>
+      <h3 class="panel-title">Fechamento do dia</h3>
+      <div class="sub">Resumo do fechamento salvo para a data atual.</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Data</th><th>Saldo Inicial</th><th>Entradas</th><th>Saídas</th><th>Saldo Final</th><th>Diferença</th><th>Observação</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{{ fechamento.data.strftime('%d/%m/%Y') }}</td>
+          <td>R$ {{ "%.2f"|format(fechamento.saldo_inicial or 0) }}</td>
+          <td class="success">R$ {{ "%.2f"|format(fechamento.entradas or 0) }}</td>
+          <td class="danger">R$ {{ "%.2f"|format(fechamento.saidas or 0) }}</td>
+          <td>R$ {{ "%.2f"|format(fechamento.saldo_final or 0) }}</td>
+          <td class="{{ 'danger' if diferenca < 0 else 'success' if diferenca > 0 else '' }}">R$ {{ "%.2f"|format(diferenca or 0) }}</td>
+          <td>{{ fechamento.observacao or '-' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="toolbar">
+    <div>
+      <h3 class="panel-title">Histórico recente</h3>
+      <div class="sub">Últimos fechamentos registrados no sistema.</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Data</th><th>Saldo Inicial</th><th>Entradas</th><th>Saídas</th><th>Saldo Final</th><th>Diferença</th><th>Observação</th></tr>
+      </thead>
+      <tbody>
+        {% for item in fechamentos_recentes %}
+          {% set dif = (item.saldo_final or 0) - ((item.saldo_inicial or 0) + (item.entradas or 0) - (item.saidas or 0)) %}
+          <tr>
+            <td>{{ item.data.strftime('%d/%m/%Y') if item.data else '-' }}</td>
+            <td>R$ {{ "%.2f"|format(item.saldo_inicial or 0) }}</td>
+            <td class="success">R$ {{ "%.2f"|format(item.entradas or 0) }}</td>
+            <td class="danger">R$ {{ "%.2f"|format(item.saidas or 0) }}</td>
+            <td>R$ {{ "%.2f"|format(item.saldo_final or 0) }}</td>
+            <td class="{{ 'danger' if dif < 0 else 'success' if dif > 0 else '' }}">R$ {{ "%.2f"|format(dif or 0) }}</td>
+            <td>{{ item.observacao or '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">Nenhum fechamento registrado ainda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

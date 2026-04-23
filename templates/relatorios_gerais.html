@@ -14,5 +14,8 @@
     <a class="produto-card" href="{{ url_for('painel_financeiro') }}"><h3 class="section-title">📉 Painel Financeiro</h3><p class="muted">Resumo executivo com foco no fiado.</p></a>
     <a class="produto-card" href="{{ url_for('relatorio_cliente_pdf') }}"><h3 class="section-title">🧾 Relatório PDF por Cliente</h3><p class="muted">Filtre por cliente e gere PDF com rodapé PIX.</p></a>
     <a class="produto-card" href="{{ url_for('fechamento_caixa') }}"><h3 class="section-title">🔒 Fechamento de Caixa</h3><p class="muted">Conciliação diária e fechamento operacional.</p></a>
+    <a class="produto-card" href="{{ url_for('relatorio_devedores_pdf') }}"><h3 class="section-title">📄 PDF Devedores</h3><p class="muted">Relatório profissional com logo dos clientes com valores em aberto.</p></a>
+    <a class="produto-card" href="{{ url_for('relatorio_vendas_pdf') }}"><h3 class="section-title">🧾 PDF de Vendas</h3><p class="muted">Baixe as vendas pagas em PDF com período opcional.</p></a>
+    <a class="produto-card" href="{{ url_for('relatorio_fechamento_caixa_pdf') }}"><h3 class="section-title">🔐 PDF Fechamento de Caixa</h3><p class="muted">Resumo diário dos fechamentos com saldo e diferença.</p></a>
 </div>
 {% endblock %}

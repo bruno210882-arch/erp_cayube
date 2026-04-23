@@ -537,6 +537,169 @@ def gerar_qrcode_base64(texto):
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
+def _pdf_cabecalho_rodape(pdf, titulo, subtitulo=None):
+    largura, altura = A4
+    logo_path = os.path.join(app.root_path, "static", "logo.png")
+    data_geracao = agora_brasil().strftime("%d/%m/%Y %H:%M")
+
+    if os.path.exists(logo_path):
+        try:
+            pdf.drawImage(ImageReader(logo_path), 18 * mm, altura - 28 * mm, width=18 * mm, height=18 * mm, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+
+    pdf.setFillColorRGB(0.08, 0.13, 0.25)
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(40 * mm, altura - 16 * mm, "ERP Cayube")
+    pdf.setFont("Helvetica-Bold", 13)
+    pdf.drawString(40 * mm, altura - 23 * mm, titulo)
+    if subtitulo:
+        pdf.setFont("Helvetica", 9)
+        pdf.setFillColorRGB(0.35, 0.35, 0.35)
+        pdf.drawString(18 * mm, altura - 33 * mm, subtitulo)
+
+    pdf.setFont("Helvetica", 9)
+    pdf.setFillColorRGB(0.35, 0.35, 0.35)
+    pdf.line(18 * mm, 22 * mm, largura - 18 * mm, 22 * mm)
+    pdf.drawString(18 * mm, 16 * mm, f"PIX: {PIX_CHAVE}")
+    pdf.drawString(18 * mm, 11 * mm, f"Recebedor: {PIX_NOME} - {PIX_CIDADE}")
+    pdf.drawRightString(largura - 18 * mm, 16 * mm, f"Gerado em: {data_geracao}")
+    pdf.drawRightString(largura - 18 * mm, 11 * mm, f"Página {pdf.getPageNumber()}")
+    return largura, altura
+
+
+def gerar_pdf_devedores(clientes):
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    largura, altura = _pdf_cabecalho_rodape(pdf, "Relatório de Clientes Devedores", "Clientes com saldo de fiado em aberto")
+    y = altura - 46 * mm
+    total = 0
+
+    def header(y):
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(20 * mm, y, "Cliente")
+        pdf.drawString(110 * mm, y, "Local")
+        pdf.drawRightString(190 * mm, y, "Valor em aberto")
+        y -= 3 * mm
+        pdf.line(18 * mm, y, 192 * mm, y)
+        return y - 7 * mm
+
+    y = header(y)
+    pdf.setFont("Helvetica", 10)
+    for cliente in clientes:
+        if y < 34 * mm:
+            pdf.showPage()
+            largura, altura = _pdf_cabecalho_rodape(pdf, "Relatório de Clientes Devedores", "Clientes com saldo de fiado em aberto")
+            y = header(altura - 46 * mm)
+            pdf.setFont("Helvetica", 10)
+        valor = float(cliente.divida or 0)
+        total += valor
+        pdf.drawString(20 * mm, y, (cliente.nome or "-")[:45])
+        pdf.drawString(110 * mm, y, (cliente.local or "-")[:24])
+        pdf.drawRightString(190 * mm, y, f"R$ {valor:.2f}")
+        y -= 7 * mm
+
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.line(18 * mm, y + 2 * mm, 192 * mm, y + 2 * mm)
+    pdf.drawRightString(190 * mm, y - 4 * mm, f"TOTAL EM ABERTO: R$ {total:.2f}")
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
+
+def gerar_pdf_vendas_periodo(vendas, data_inicial="", data_final=""):
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    subt = f"Período: {data_inicial or 'início'} até {data_final or 'hoje'}"
+    largura, altura = _pdf_cabecalho_rodape(pdf, "Relatório de Vendas", subt)
+    y = altura - 46 * mm
+    total = 0
+
+    def header(y):
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.drawString(18 * mm, y, "Data")
+        pdf.drawString(43 * mm, y, "Cliente")
+        pdf.drawString(95 * mm, y, "Produto")
+        pdf.drawString(145 * mm, y, "Forma")
+        pdf.drawRightString(190 * mm, y, "Valor")
+        y -= 3 * mm
+        pdf.line(18 * mm, y, 192 * mm, y)
+        return y - 6 * mm
+
+    y = header(y)
+    pdf.setFont("Helvetica", 9)
+    for venda, cliente, produto in vendas:
+        if y < 34 * mm:
+            pdf.showPage()
+            largura, altura = _pdf_cabecalho_rodape(pdf, "Relatório de Vendas", subt)
+            y = header(altura - 46 * mm)
+            pdf.setFont("Helvetica", 9)
+        valor = float(venda.total or 0)
+        total += valor
+        data_txt = venda.data.strftime("%d/%m/%Y") if getattr(venda, 'data', None) else '-'
+        pdf.drawString(18 * mm, y, data_txt)
+        pdf.drawString(43 * mm, y, ((cliente.nome if cliente else "-") or "-")[:26])
+        pdf.drawString(95 * mm, y, ((produto.nome if produto else "Venda direta") or "Venda direta")[:24])
+        pdf.drawString(145 * mm, y, ((venda.forma_pagamento or "-").title())[:12])
+        pdf.drawRightString(190 * mm, y, f"R$ {valor:.2f}")
+        y -= 6 * mm
+
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.line(18 * mm, y + 2 * mm, 192 * mm, y + 2 * mm)
+    pdf.drawRightString(190 * mm, y - 4 * mm, f"TOTAL VENDIDO: R$ {total:.2f}")
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
+
+def gerar_pdf_fechamentos(fechamentos):
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    largura, altura = _pdf_cabecalho_rodape(pdf, "Relatório de Fechamento de Caixa", "Resumo diário dos fechamentos registrados")
+    y = altura - 46 * mm
+    total_entradas = total_saidas = 0
+
+    def header(y):
+        pdf.setFont("Helvetica-Bold", 8)
+        pdf.drawString(18 * mm, y, "Data")
+        pdf.drawRightString(60 * mm, y, "Saldo Inicial")
+        pdf.drawRightString(95 * mm, y, "Entradas")
+        pdf.drawRightString(125 * mm, y, "Saídas")
+        pdf.drawRightString(160 * mm, y, "Saldo Final")
+        pdf.drawRightString(190 * mm, y, "Diferença")
+        y -= 3 * mm
+        pdf.line(18 * mm, y, 192 * mm, y)
+        return y - 6 * mm
+
+    y = header(y)
+    pdf.setFont("Helvetica", 8)
+    for item in fechamentos:
+        if y < 34 * mm:
+            pdf.showPage()
+            largura, altura = _pdf_cabecalho_rodape(pdf, "Relatório de Fechamento de Caixa", "Resumo diário dos fechamentos registrados")
+            y = header(altura - 46 * mm)
+            pdf.setFont("Helvetica", 8)
+        previsto = float(item.saldo_inicial or 0) + float(item.entradas or 0) - float(item.saidas or 0)
+        diferenca = float(item.saldo_final or 0) - previsto
+        total_entradas += float(item.entradas or 0)
+        total_saidas += float(item.saidas or 0)
+        pdf.drawString(18 * mm, y, item.data.strftime("%d/%m/%Y") if item.data else '-')
+        pdf.drawRightString(60 * mm, y, f"R$ {float(item.saldo_inicial or 0):.2f}")
+        pdf.drawRightString(95 * mm, y, f"R$ {float(item.entradas or 0):.2f}")
+        pdf.drawRightString(125 * mm, y, f"R$ {float(item.saidas or 0):.2f}")
+        pdf.drawRightString(160 * mm, y, f"R$ {float(item.saldo_final or 0):.2f}")
+        pdf.drawRightString(190 * mm, y, f"R$ {diferenca:.2f}")
+        y -= 6 * mm
+
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.line(18 * mm, y + 2 * mm, 192 * mm, y + 2 * mm)
+    pdf.drawString(18 * mm, y - 4 * mm, f"Total de entradas: R$ {total_entradas:.2f}")
+    pdf.drawRightString(190 * mm, y - 4 * mm, f"Total de saídas: R$ {total_saidas:.2f}")
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
+
 def gerar_pdf_relatorio_cliente(cliente, vendas, data_inicial="", data_final=""):
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
@@ -2055,14 +2218,59 @@ def fechamento_caixa():
             db.session.rollback()
             return f"Erro ao salvar fechamento de caixa: {str(e)}"
 
+    fechamentos_recentes = FechamentoCaixa.query.order_by(FechamentoCaixa.data.desc()).limit(15).all()
+    saldo_previsto = float((fechamento_existente.saldo_inicial if fechamento_existente else 0) or 0) + float(entradas or 0) - float(saidas or 0)
+    diferenca = float(saldo_final or 0) - float(saldo_previsto or 0)
+
     return render_template(
         "fechamento_caixa.html",
         hoje=hoje,
         entradas=entradas,
         saidas=saidas,
         saldo_final=saldo_final,
-        fechamento=fechamento_existente
+        fechamento=fechamento_existente,
+        fechamentos_recentes=fechamentos_recentes,
+        saldo_previsto=saldo_previsto,
+        diferenca=diferenca
     )
+
+
+@app.route("/relatorio_devedores_pdf")
+@login_obrigatorio
+def relatorio_devedores_pdf():
+    clientes = Cliente.query.filter(Cliente.divida > 0).order_by(Cliente.divida.desc(), Cliente.nome.asc()).all()
+    pdf = gerar_pdf_devedores(clientes)
+    return send_file(pdf, as_attachment=True, download_name="relatorio_clientes_devedores.pdf", mimetype="application/pdf")
+
+
+@app.route("/relatorio_vendas_pdf")
+@login_obrigatorio
+def relatorio_vendas_pdf():
+    data_inicial = (request.args.get("data_inicial") or "").strip()
+    data_final = (request.args.get("data_final") or "").strip()
+
+    query = (
+        db.session.query(Venda, Cliente, Produto)
+        .outerjoin(Cliente, Venda.cliente_id == Cliente.id)
+        .outerjoin(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.pago == True)
+    )
+    if data_inicial:
+        query = query.filter(func.date(Venda.data) >= data_inicial)
+    if data_final:
+        query = query.filter(func.date(Venda.data) <= data_final)
+
+    vendas = query.order_by(Venda.data.desc(), Venda.id.desc()).all()
+    pdf = gerar_pdf_vendas_periodo(vendas, data_inicial, data_final)
+    return send_file(pdf, as_attachment=True, download_name="relatorio_vendas.pdf", mimetype="application/pdf")
+
+
+@app.route("/relatorio_fechamento_caixa_pdf")
+@login_obrigatorio
+def relatorio_fechamento_caixa_pdf():
+    fechamentos = FechamentoCaixa.query.order_by(FechamentoCaixa.data.desc()).all()
+    pdf = gerar_pdf_fechamentos(fechamentos)
+    return send_file(pdf, as_attachment=True, download_name="relatorio_fechamento_caixa.pdf", mimetype="application/pdf")
 
 
 @app.route("/usuarios", methods=["GET", "POST"])
