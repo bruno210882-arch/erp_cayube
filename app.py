@@ -1415,13 +1415,21 @@ def confirmar_pix(venda_id):
     return redirect(url_for("pedidos_clientes"))
 
 
-@app.route("/validar_pix_cliente/<int:venda_id>")
+@app.route("/validar_pix_cliente/<int:venda_id>", methods=["GET", "POST"])
 @login_obrigatorio
 def validar_pix_cliente(venda_id):
-    if venda_id < 0:
-        return redirect(url_for("confirmar_pix_divida_cliente", cliente_id=abs(venda_id)))
+    # Validação de PIX individual de venda/pedido.
+    # IDs negativos não são capturados pelo conversor <int> do Flask.
+    # Para PIX de fiado total, usamos a rota de compatibilidade logo abaixo.
     return redirect(url_for("confirmar_pix", venda_id=venda_id))
 
+
+@app.route("/validar_pix_cliente/-<int:cliente_id>", methods=["GET", "POST"])
+@login_obrigatorio
+def validar_pix_cliente_fiado(cliente_id):
+    # Compatibilidade com notificações criadas com venda_id negativo
+    # para representar PIX do fiado total do cliente.
+    return redirect(url_for("confirmar_pix_divida_cliente", cliente_id=cliente_id))
 
 @app.route("/confirmar_pix_divida_cliente/<int:cliente_id>")
 @login_obrigatorio
