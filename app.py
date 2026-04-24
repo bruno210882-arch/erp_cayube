@@ -4,6 +4,7 @@ import re
 import base64
 import unicodedata
 import logging
+import time
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, date
 from functools import wraps
@@ -11,11 +12,21 @@ from collections import defaultdict
 from sqlalchemy import func, desc
 from flask import session, request, redirect, render_template, flash, url_for
 from sqlalchemy import func
-from datetime import datetime
 from zoneinfo import ZoneInfo
 
+FUSO_BRASIL = ZoneInfo("America/Sao_Paulo")
+os.environ.setdefault("TZ", "America/Sao_Paulo")
+if hasattr(time, "tzset"):
+    time.tzset()
+
 def agora_brasil():
-    return datetime.now(ZoneInfo("America/Sao_Paulo"))
+    """Retorna o horário local de São Paulo sem timezone anexado.
+    Isso evita diferença de +3h no Render/Postgres, que rodam em UTC.
+    """
+    return datetime.now(FUSO_BRASIL).replace(tzinfo=None)
+
+def hoje_brasil():
+    return agora_brasil().date()
 
 import qrcode
 from flask import (
@@ -208,6 +219,7 @@ def garantir_estrutura_banco():
     db.create_all()
 
     verdadeiro = sql_boolean_true()
+    agora_sql = agora_brasil().strftime("%Y-%m-%d %H:%M:%S")
 
     garantir_coluna_se_nao_existir(
         "cliente",
@@ -231,7 +243,7 @@ def garantir_estrutura_banco():
         "venda",
         "data",
         "TIMESTAMP",
-        updates_sql=["UPDATE venda SET data = CURRENT_TIMESTAMP WHERE data IS NULL"],
+        updates_sql=[f"UPDATE venda SET data = '{agora_sql}' WHERE data IS NULL"],
     )
     garantir_coluna_se_nao_existir(
         "venda",
@@ -326,7 +338,7 @@ def registrar_recebimento(venda, forma, criar_movimento=True, observacao=None):
 
 
 def montar_dashboard():
-    hoje = date.today()
+    hoje = hoje_brasil()
     saldo = get_saldo()
 
     vendas_hoje = db.session.query(func.sum(Venda.total)).filter(
@@ -705,7 +717,7 @@ def gerar_pdf_relatorio_cliente(cliente, vendas, data_inicial="", data_final="")
     pdf = canvas.Canvas(buffer, pagesize=A4)
     largura, altura = A4
     logo_path = os.path.join(app.root_path, "static", "logo.png")
-    data_geracao = agora_brasil().strftime("%d/%m/%Y %H:%M") if "agora_brasil" in globals() else datetime.now().strftime("%d/%m/%Y %H:%M")
+    data_geracao = agora_brasil().strftime("%d/%m/%Y %H:%M")
 
     def rodape():
         pdf.setFont("Helvetica", 9)
@@ -1245,7 +1257,7 @@ from sqlalchemy import func
 @app.route("/")
 @login_obrigatorio
 def index():
-    hoje = date.today()
+    hoje = hoje_brasil()
 
     vendas_hoje = db.session.query(func.sum(Venda.total)).filter(
         func.date(Venda.data) == hoje
@@ -2185,7 +2197,7 @@ def fluxo_caixa():
 @app.route("/fechamento_caixa", methods=["GET", "POST"])
 @login_obrigatorio
 def fechamento_caixa():
-    hoje = date.today()
+    hoje = hoje_brasil()
     saldo = get_saldo()
 
     movimentos_hoje = Movimento.query.filter(
