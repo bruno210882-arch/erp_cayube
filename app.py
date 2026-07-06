@@ -4,7 +4,6 @@ import re
 import base64
 import unicodedata
 import logging
-import time
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, date
 from functools import wraps
@@ -12,21 +11,11 @@ from collections import defaultdict
 from sqlalchemy import func, desc
 from flask import session, request, redirect, render_template, flash, url_for
 from sqlalchemy import func
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
-FUSO_BRASIL = ZoneInfo("America/Sao_Paulo")
-os.environ.setdefault("TZ", "America/Sao_Paulo")
-if hasattr(time, "tzset"):
-    time.tzset()
-
 def agora_brasil():
-    """Retorna o horário local de São Paulo sem timezone anexado.
-    Isso evita diferença de +3h no Render/Postgres, que rodam em UTC.
-    """
-    return datetime.now(FUSO_BRASIL).replace(tzinfo=None)
-
-def hoje_brasil():
-    return agora_brasil().date()
+    return datetime.now(ZoneInfo("America/Sao_Paulo"))
 
 import qrcode
 from flask import (
@@ -219,7 +208,6 @@ def garantir_estrutura_banco():
     db.create_all()
 
     verdadeiro = sql_boolean_true()
-    agora_sql = agora_brasil().strftime("%Y-%m-%d %H:%M:%S")
 
     garantir_coluna_se_nao_existir(
         "cliente",
@@ -243,7 +231,7 @@ def garantir_estrutura_banco():
         "venda",
         "data",
         "TIMESTAMP",
-        updates_sql=[f"UPDATE venda SET data = '{agora_sql}' WHERE data IS NULL"],
+        updates_sql=["UPDATE venda SET data = CURRENT_TIMESTAMP WHERE data IS NULL"],
     )
     garantir_coluna_se_nao_existir(
         "venda",
@@ -338,7 +326,7 @@ def registrar_recebimento(venda, forma, criar_movimento=True, observacao=None):
 
 
 def montar_dashboard():
-    hoje = hoje_brasil()
+    hoje = date.today()
     saldo = get_saldo()
 
     vendas_hoje = db.session.query(func.sum(Venda.total)).filter(
@@ -619,6 +607,226 @@ def gerar_pdf_devedores(clientes):
     return buffer
 
 
+
+
+def _fmt_moeda_br(valor):
+    try:
+        valor = float(valor or 0)
+    except Exception:
+        valor = 0.0
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _fmt_data_br(valor):
+    if not valor:
+        return "-"
+    try:
+        return valor.strftime("%d/%m/%Y")
+    except Exception:
+        return str(valor)[:10]
+
+
+def _parse_data_filtro(valor):
+    valor = (valor or "").strip()
+    if not valor:
+        return None
+    try:
+        return datetime.strptime(valor, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _texto_pdf_linha(pdf, texto, x, y, largura_max=70, font="Helvetica", size=8):
+    """Desenha texto curto com truncamento seguro para não estourar a coluna."""
+    texto = str(texto or "-").replace("\n", " ").strip()
+    pdf.setFont(font, size)
+    if pdf.stringWidth(texto, font, size) <= largura_max * mm:
+        pdf.drawString(x, y, texto)
+        return
+    while texto and pdf.stringWidth(texto + "...", font, size) > largura_max * mm:
+        texto = texto[:-1]
+    pdf.drawString(x, y, (texto or "-") + "...")
+
+
+def _montar_query_fiado_local(local=None, cliente_id=None, data_inicial=None, data_final=None, situacao="aberto"):
+    query = (
+        db.session.query(Venda, Cliente, Produto)
+        .join(Cliente, Venda.cliente_id == Cliente.id)
+        .outerjoin(Produto, Venda.produto_id == Produto.id)
+        .filter(Venda.forma_pagamento == "fiado")
+    )
+
+    situacao = (situacao or "aberto").strip().lower()
+    if situacao == "aberto":
+        query = query.filter(Venda.pago == False)
+    elif situacao == "quitado":
+        query = query.filter(Venda.pago == True)
+
+    if local:
+        query = query.filter(Cliente.local == local)
+    if cliente_id:
+        try:
+            query = query.filter(Cliente.id == int(cliente_id))
+        except Exception:
+            pass
+    if data_inicial:
+        query = query.filter(func.date(Venda.data) >= data_inicial)
+    if data_final:
+        query = query.filter(func.date(Venda.data) <= data_final)
+
+    return query
+
+
+def gerar_pdf_fiado_por_local(rows, filtros=None):
+    filtros = filtros or {}
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    largura, altura = A4
+    hoje = agora_brasil().date()
+
+    local_filtro = filtros.get("local") or "Todos"
+    situacao = (filtros.get("situacao") or "aberto").capitalize()
+    periodo = f"{filtros.get('data_inicial') or 'início'} até {filtros.get('data_final') or 'hoje'}"
+    subtitulo = f"Local: {local_filtro} | Situação: {situacao} | Período: {periodo}"
+
+    y = 0
+    total_geral = 0.0
+    qtd_clientes = set()
+    qtd_pedidos = 0
+    qtd_itens = 0
+    resumo_locais = defaultdict(lambda: {"clientes": set(), "pedidos": 0, "valor": 0.0})
+
+    def nova_pagina():
+        nonlocal y, largura, altura
+        largura, altura = _pdf_cabecalho_rodape(pdf, "Relatório de Fiado por Local", subtitulo)
+        y = altura - 45 * mm
+        pdf.setFont("Helvetica-Bold", 8)
+        pdf.drawString(18 * mm, y, "Data")
+        pdf.drawString(38 * mm, y, "Cliente")
+        pdf.drawString(84 * mm, y, "Produto / Item em aberto")
+        pdf.drawRightString(145 * mm, y, "Qtd")
+        pdf.drawRightString(169 * mm, y, "Valor")
+        pdf.drawString(174 * mm, y, "Situação")
+        y -= 3 * mm
+        pdf.line(18 * mm, y, 192 * mm, y)
+        y -= 6 * mm
+
+    def quebra_se_precisar(espaco=12 * mm):
+        nonlocal y
+        if y < 30 * mm + espaco:
+            pdf.showPage()
+            nova_pagina()
+
+    nova_pagina()
+
+    agrupado = defaultdict(lambda: defaultdict(list))
+    for venda, cliente, produto in rows:
+        loc = cliente.local or "Sem local informado"
+        agrupado[loc][cliente].append((venda, produto))
+
+    if not rows:
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(18 * mm, y, "Nenhum registro encontrado para os filtros selecionados.")
+    else:
+        for local in sorted(agrupado.keys(), key=lambda v: (v or "").lower()):
+            quebra_se_precisar(18 * mm)
+            total_local = 0.0
+            clientes_local = agrupado[local]
+            pdf.setFillColorRGB(0.90, 0.95, 1.0)
+            pdf.rect(18 * mm, y - 4 * mm, 174 * mm, 8 * mm, stroke=0, fill=1)
+            pdf.setFillColorRGB(0.08, 0.13, 0.25)
+            pdf.setFont("Helvetica-Bold", 11)
+            pdf.drawString(20 * mm, y - 1 * mm, f"LOCAL: {local}")
+            y -= 11 * mm
+
+            for cliente in sorted(clientes_local.keys(), key=lambda c: (c.nome or "").lower()):
+                itens = clientes_local[cliente]
+                total_cliente = sum(float(v.total or 0) for v, _ in itens)
+                total_local += total_cliente
+                total_geral += total_cliente
+                qtd_clientes.add(cliente.id)
+                resumo_locais[local]["clientes"].add(cliente.id)
+
+                quebra_se_precisar(20 * mm)
+                pdf.setFont("Helvetica-Bold", 9)
+                pdf.setFillColorRGB(0, 0, 0)
+                pdf.drawString(22 * mm, y, f"Cliente: {(cliente.nome or '-')[:55]}")
+                pdf.setFont("Helvetica", 8)
+                pdf.drawString(22 * mm, y - 5 * mm, f"Telefone: {cliente.telefone or '-'}")
+                pdf.drawRightString(190 * mm, y, f"Total cliente: {_fmt_moeda_br(total_cliente)}")
+                y -= 11 * mm
+
+                for venda, produto in sorted(itens, key=lambda vp: (vp[0].data or agora_brasil(), vp[0].id or 0)):
+                    quebra_se_precisar(9 * mm)
+                    valor = float(venda.total or 0)
+                    qtd_pedidos += 1
+                    qtd_itens += int(venda.quantidade or 0)
+                    resumo_locais[local]["pedidos"] += 1
+                    resumo_locais[local]["valor"] += valor
+
+                    data_txt = _fmt_data_br(venda.data)
+                    if venda.pago:
+                        situacao_txt = "QUITADO"
+                    else:
+                        try:
+                            dias = (hoje - venda.data.date()).days if venda.data else 0
+                        except Exception:
+                            dias = 0
+                        if dias <= 15:
+                            situacao_txt = f"EM DIA ({dias}d)"
+                        elif dias <= 30:
+                            situacao_txt = f"ATENÇÃO ({dias}d)"
+                        else:
+                            situacao_txt = f"VENCIDO ({dias}d)"
+
+                    pdf.setFont("Helvetica", 8)
+                    pdf.drawString(18 * mm, y, data_txt)
+                    _texto_pdf_linha(pdf, cliente.nome, 38 * mm, y, 40, "Helvetica", 8)
+                    _texto_pdf_linha(pdf, produto.nome if produto else "Item sem produto", 84 * mm, y, 50, "Helvetica", 8)
+                    pdf.drawRightString(145 * mm, y, str(venda.quantidade or 0))
+                    pdf.drawRightString(169 * mm, y, _fmt_moeda_br(valor))
+                    pdf.drawString(174 * mm, y, situacao_txt[:18])
+                    y -= 6 * mm
+
+                pdf.setFont("Helvetica-Bold", 8)
+                pdf.line(22 * mm, y + 2 * mm, 190 * mm, y + 2 * mm)
+                y -= 3 * mm
+
+            quebra_se_precisar(12 * mm)
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawRightString(190 * mm, y, f"TOTAL DO LOCAL {local}: {_fmt_moeda_br(total_local)}")
+            y -= 12 * mm
+
+        quebra_se_precisar(45 * mm)
+        pdf.setFillColorRGB(0.08, 0.13, 0.25)
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(18 * mm, y, "RESUMO GERAL")
+        y -= 9 * mm
+        pdf.setFillColorRGB(0, 0, 0)
+        pdf.setFont("Helvetica", 9)
+        pdf.drawString(18 * mm, y, f"Clientes com fiado: {len(qtd_clientes)}")
+        pdf.drawString(70 * mm, y, f"Lançamentos/Pedidos: {qtd_pedidos}")
+        pdf.drawString(130 * mm, y, f"Qtd. produtos: {qtd_itens}")
+        y -= 7 * mm
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(18 * mm, y, f"Valor total: {_fmt_moeda_br(total_geral)}")
+        y -= 10 * mm
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.drawString(18 * mm, y, "Resumo por local")
+        y -= 7 * mm
+        pdf.setFont("Helvetica", 8)
+        for local, info in sorted(resumo_locais.items(), key=lambda kv: kv[1]["valor"], reverse=True):
+            quebra_se_precisar(7 * mm)
+            pdf.drawString(22 * mm, y, str(local)[:45])
+            pdf.drawString(92 * mm, y, f"Clientes: {len(info['clientes'])}")
+            pdf.drawString(125 * mm, y, f"Pedidos: {info['pedidos']}")
+            pdf.drawRightString(190 * mm, y, _fmt_moeda_br(info["valor"]))
+            y -= 6 * mm
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
 def gerar_pdf_vendas_periodo(vendas, data_inicial="", data_final=""):
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
@@ -717,7 +925,7 @@ def gerar_pdf_relatorio_cliente(cliente, vendas, data_inicial="", data_final="")
     pdf = canvas.Canvas(buffer, pagesize=A4)
     largura, altura = A4
     logo_path = os.path.join(app.root_path, "static", "logo.png")
-    data_geracao = agora_brasil().strftime("%d/%m/%Y %H:%M")
+    data_geracao = agora_brasil().strftime("%d/%m/%Y %H:%M") if "agora_brasil" in globals() else datetime.now().strftime("%d/%m/%Y %H:%M")
 
     def rodape():
         pdf.setFont("Helvetica", 9)
@@ -1257,7 +1465,7 @@ from sqlalchemy import func
 @app.route("/")
 @login_obrigatorio
 def index():
-    hoje = hoje_brasil()
+    hoje = date.today()
 
     vendas_hoje = db.session.query(func.sum(Venda.total)).filter(
         func.date(Venda.data) == hoje
@@ -2197,7 +2405,7 @@ def fluxo_caixa():
 @app.route("/fechamento_caixa", methods=["GET", "POST"])
 @login_obrigatorio
 def fechamento_caixa():
-    hoje = hoje_brasil()
+    hoje = date.today()
     saldo = get_saldo()
 
     movimentos_hoje = Movimento.query.filter(
@@ -2989,19 +3197,98 @@ def relatorio_fiado_cliente():
 
 
 # ===============================
-# 📍 FIADO POR LOCAL
+# 📍 FIADO POR LOCAL - TELA E PDF
 # ===============================
 @app.route("/relatorio_fiado_local")
 @login_obrigatorio
 def relatorio_fiado_local():
-    dados = db.session.query(
-        Cliente.local,
-        func.sum(Venda.total)
-    ).join(Venda).filter(
-        Venda.pago == False
-    ).group_by(Cliente.local).all()
+    local = (request.args.get("local") or "").strip()
+    cliente_id = (request.args.get("cliente_id") or "").strip()
+    data_inicial = (request.args.get("data_inicial") or "").strip()
+    data_final = (request.args.get("data_final") or "").strip()
+    situacao = (request.args.get("situacao") or "aberto").strip().lower()
 
-    return render_template("relatorio_fiado_local.html", dados=dados)
+    di = _parse_data_filtro(data_inicial)
+    df = _parse_data_filtro(data_final)
+
+    rows = (
+        _montar_query_fiado_local(local, cliente_id, di, df, situacao)
+        .order_by(Cliente.local.asc(), Cliente.nome.asc(), Venda.data.asc(), Venda.id.asc())
+        .all()
+    )
+
+    resumo = defaultdict(lambda: {"clientes": set(), "pedidos": 0, "valor": 0.0})
+    for venda, cliente, produto in rows:
+        loc = cliente.local or "Sem local informado"
+        resumo[loc]["clientes"].add(cliente.id)
+        resumo[loc]["pedidos"] += 1
+        resumo[loc]["valor"] += float(venda.total or 0)
+
+    dados = [
+        {
+            "local": loc,
+            "clientes": len(info["clientes"]),
+            "pedidos": info["pedidos"],
+            "valor": info["valor"],
+        }
+        for loc, info in resumo.items()
+    ]
+    dados.sort(key=lambda x: x["valor"], reverse=True)
+
+    locais = [l[0] or "Sem local informado" for l in db.session.query(Cliente.local).distinct().order_by(Cliente.local.asc()).all()]
+    clientes_q = Cliente.query.order_by(Cliente.nome.asc())
+    if local:
+        clientes_q = clientes_q.filter(Cliente.local == local)
+    clientes = clientes_q.all()
+
+    total_geral = sum(item["valor"] for item in dados)
+    total_clientes = len(set(cliente.id for _, cliente, _ in rows))
+    total_pedidos = len(rows)
+
+    return render_template(
+        "relatorio_fiado_local.html",
+        dados=dados,
+        locais=locais,
+        clientes=clientes,
+        filtros={
+            "local": local,
+            "cliente_id": cliente_id,
+            "data_inicial": data_inicial,
+            "data_final": data_final,
+            "situacao": situacao,
+        },
+        total_geral=total_geral,
+        total_clientes=total_clientes,
+        total_pedidos=total_pedidos,
+    )
+
+
+@app.route("/relatorio_fiado_local_pdf")
+@login_obrigatorio
+def relatorio_fiado_local_pdf():
+    local = (request.args.get("local") or "").strip()
+    cliente_id = (request.args.get("cliente_id") or "").strip()
+    data_inicial = (request.args.get("data_inicial") or "").strip()
+    data_final = (request.args.get("data_final") or "").strip()
+    situacao = (request.args.get("situacao") or "aberto").strip().lower()
+
+    di = _parse_data_filtro(data_inicial)
+    df = _parse_data_filtro(data_final)
+
+    rows = (
+        _montar_query_fiado_local(local, cliente_id, di, df, situacao)
+        .order_by(Cliente.local.asc(), Cliente.nome.asc(), Venda.data.asc(), Venda.id.asc())
+        .all()
+    )
+
+    pdf = gerar_pdf_fiado_por_local(rows, {
+        "local": local or "Todos",
+        "situacao": situacao,
+        "data_inicial": data_inicial,
+        "data_final": data_final,
+    })
+    nome = f"fiado_por_local_{agora_brasil().strftime('%Y%m%d_%H%M')}.pdf"
+    return send_file(pdf, as_attachment=True, download_name=nome, mimetype="application/pdf")
 
 
 
