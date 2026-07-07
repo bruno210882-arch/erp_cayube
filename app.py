@@ -3183,6 +3183,125 @@ def ranking_clientes():
 # ===============================
 # 📊 FIADO POR CLIENTE
 # ===============================
+
+
+def _dias_em_aberto(vendas):
+    datas = [v.data for v in vendas if getattr(v, "data", None)]
+    if not datas:
+        return 0
+    mais_antiga = min(datas)
+    try:
+        data_base = mais_antiga.date()
+    except Exception:
+        data_base = mais_antiga
+    return max((agora_brasil().date() - data_base).days, 0)
+
+
+def gerar_pdf_resumo_fiado_por_local(rows, filtros=None):
+    filtros = filtros or {}
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    largura, altura = A4
+
+    local_filtro = filtros.get("local") or "Todos"
+    situacao = (filtros.get("situacao") or "aberto").capitalize()
+    periodo = f"{filtros.get('data_inicial') or 'início'} até {filtros.get('data_final') or 'hoje'}"
+    subtitulo = f"Local: {local_filtro} | Situação: {situacao} | Período: {periodo}"
+
+    por_local_cliente = defaultdict(lambda: defaultdict(list))
+    for venda, cliente, produto in rows:
+        loc = cliente.local or "Sem local informado"
+        por_local_cliente[loc][cliente].append(venda)
+
+    y = 0
+
+    def nova_pagina():
+        nonlocal y, largura, altura
+        largura, altura = _pdf_cabecalho_rodape(pdf, "Resumo de Fiado por Local", subtitulo)
+        y = altura - 45 * mm
+        pdf.setFont("Helvetica-Bold", 8)
+        pdf.drawString(18 * mm, y, "Cliente")
+        pdf.drawString(83 * mm, y, "Telefone")
+        pdf.drawString(118 * mm, y, "Última compra")
+        pdf.drawRightString(156 * mm, y, "Dias")
+        pdf.drawRightString(190 * mm, y, "Total em aberto")
+        y -= 3 * mm
+        pdf.line(18 * mm, y, 192 * mm, y)
+        y -= 6 * mm
+
+    def quebra_se_precisar(espaco=12 * mm):
+        nonlocal y
+        if y < 30 * mm + espaco:
+            pdf.showPage()
+            nova_pagina()
+
+    nova_pagina()
+
+    total_geral = 0.0
+    total_clientes_geral = 0
+
+    if not rows:
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(18 * mm, y, "Nenhum registro encontrado para os filtros selecionados.")
+    else:
+        for local in sorted(por_local_cliente.keys(), key=lambda v: (v or "").lower()):
+            quebra_se_precisar(18 * mm)
+            clientes = por_local_cliente[local]
+            total_local = 0.0
+
+            pdf.setFillColorRGB(0.90, 0.95, 1.0)
+            pdf.rect(18 * mm, y - 4 * mm, 174 * mm, 8 * mm, stroke=0, fill=1)
+            pdf.setFillColorRGB(0.08, 0.13, 0.25)
+            pdf.setFont("Helvetica-Bold", 11)
+            pdf.drawString(20 * mm, y - 1 * mm, f"LOCAL: {local}")
+            y -= 11 * mm
+            pdf.setFillColorRGB(0, 0, 0)
+
+            linhas_clientes = []
+            for cliente, vendas in clientes.items():
+                total_cliente = sum(float(v.total or 0) for v in vendas)
+                ultima_data = max([v.data for v in vendas if v.data], default=None)
+                dias = _dias_em_aberto(vendas)
+                linhas_clientes.append((cliente, total_cliente, ultima_data, dias))
+
+            linhas_clientes.sort(key=lambda x: x[1], reverse=True)
+
+            for cliente, total_cliente, ultima_data, dias in linhas_clientes:
+                quebra_se_precisar(8 * mm)
+                total_local += total_cliente
+                total_geral += total_cliente
+                total_clientes_geral += 1
+
+                pdf.setFont("Helvetica", 8)
+                _texto_pdf_linha(pdf, cliente.nome or "-", 18 * mm, y, largura_max=62, size=8)
+                _texto_pdf_linha(pdf, cliente.telefone or "-", 83 * mm, y, largura_max=32, size=8)
+                pdf.drawString(118 * mm, y, _fmt_data_br(ultima_data))
+                pdf.drawRightString(156 * mm, y, f"{dias}d")
+                pdf.setFont("Helvetica-Bold", 8)
+                pdf.drawRightString(190 * mm, y, _fmt_moeda_br(total_cliente))
+                y -= 7 * mm
+
+            quebra_se_precisar(14 * mm)
+            pdf.setFont("Helvetica-Bold", 9)
+            pdf.line(18 * mm, y + 2 * mm, 192 * mm, y + 2 * mm)
+            pdf.drawString(20 * mm, y - 3 * mm, f"Clientes no local: {len(clientes)}")
+            pdf.drawRightString(190 * mm, y - 3 * mm, f"Total do local: {_fmt_moeda_br(total_local)}")
+            y -= 12 * mm
+
+        quebra_se_precisar(22 * mm)
+        pdf.setFillColorRGB(0.08, 0.13, 0.25)
+        pdf.rect(18 * mm, y - 8 * mm, 174 * mm, 14 * mm, stroke=0, fill=1)
+        pdf.setFillColorRGB(1, 1, 1)
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(22 * mm, y - 2 * mm, f"TOTAL GERAL - Clientes: {total_clientes_geral}")
+        pdf.drawRightString(188 * mm, y - 2 * mm, _fmt_moeda_br(total_geral))
+        pdf.setFillColorRGB(0, 0, 0)
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
+
 @app.route("/relatorio_fiado_cliente")
 @login_obrigatorio
 def relatorio_fiado_cliente():
@@ -3290,6 +3409,95 @@ def relatorio_fiado_local_pdf():
     nome = f"fiado_por_local_{agora_brasil().strftime('%Y%m%d_%H%M')}.pdf"
     return send_file(pdf, as_attachment=True, download_name=nome, mimetype="application/pdf")
 
+
+
+
+@app.route("/resumo_fiado_local")
+@login_obrigatorio
+def resumo_fiado_local():
+    local = (request.args.get("local") or "").strip()
+    cliente_id = (request.args.get("cliente_id") or "").strip()
+    data_inicial = (request.args.get("data_inicial") or "").strip()
+    data_final = (request.args.get("data_final") or "").strip()
+    situacao = (request.args.get("situacao") or "aberto").strip().lower()
+
+    di = _parse_data_filtro(data_inicial)
+    df = _parse_data_filtro(data_final)
+
+    rows = (
+        _montar_query_fiado_local(local, cliente_id, di, df, situacao)
+        .order_by(Cliente.local.asc(), Cliente.nome.asc(), Venda.data.asc(), Venda.id.asc())
+        .all()
+    )
+
+    resumo = defaultdict(lambda: {"vendas": [], "total": 0.0, "ultima": None, "dias": 0})
+    for venda, cliente, produto in rows:
+        chave = (cliente.local or "Sem local informado", cliente.id)
+        info = resumo[chave]
+        info["cliente"] = cliente
+        info["local"] = cliente.local or "Sem local informado"
+        info["vendas"].append(venda)
+        info["total"] += float(venda.total or 0)
+        if venda.data and (info["ultima"] is None or venda.data > info["ultima"]):
+            info["ultima"] = venda.data
+
+    dados = []
+    for info in resumo.values():
+        info["dias"] = _dias_em_aberto(info["vendas"])
+        dados.append(info)
+    dados.sort(key=lambda i: ((i["local"] or "").lower(), -float(i["total"] or 0), (i["cliente"].nome or "").lower()))
+
+    locais = [l[0] or "Sem local informado" for l in db.session.query(Cliente.local).distinct().order_by(Cliente.local.asc()).all()]
+    clientes_q = Cliente.query.order_by(Cliente.nome.asc())
+    if local:
+        clientes_q = clientes_q.filter(Cliente.local == local)
+    clientes = clientes_q.all()
+
+    total_geral = sum(float(item["total"] or 0) for item in dados)
+
+    return render_template(
+        "resumo_fiado_local.html",
+        dados=dados,
+        locais=locais,
+        clientes=clientes,
+        filtros={
+            "local": local,
+            "cliente_id": cliente_id,
+            "data_inicial": data_inicial,
+            "data_final": data_final,
+            "situacao": situacao,
+        },
+        total_geral=total_geral,
+        total_clientes=len(dados),
+    )
+
+
+@app.route("/resumo_fiado_local_pdf")
+@login_obrigatorio
+def resumo_fiado_local_pdf():
+    local = (request.args.get("local") or "").strip()
+    cliente_id = (request.args.get("cliente_id") or "").strip()
+    data_inicial = (request.args.get("data_inicial") or "").strip()
+    data_final = (request.args.get("data_final") or "").strip()
+    situacao = (request.args.get("situacao") or "aberto").strip().lower()
+
+    di = _parse_data_filtro(data_inicial)
+    df = _parse_data_filtro(data_final)
+
+    rows = (
+        _montar_query_fiado_local(local, cliente_id, di, df, situacao)
+        .order_by(Cliente.local.asc(), Cliente.nome.asc(), Venda.data.asc(), Venda.id.asc())
+        .all()
+    )
+
+    pdf = gerar_pdf_resumo_fiado_por_local(rows, {
+        "local": local or "Todos",
+        "situacao": situacao,
+        "data_inicial": data_inicial,
+        "data_final": data_final,
+    })
+    nome = f"resumo_fiado_por_local_{agora_brasil().strftime('%Y%m%d_%H%M')}.pdf"
+    return send_file(pdf, as_attachment=True, download_name=nome, mimetype="application/pdf")
 
 
 @app.route("/vendas_diretas")

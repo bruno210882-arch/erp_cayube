@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="hero">
+  <div>
+    <h2>Resumo de Fiado por Local</h2>
+    <p>Relatório resumido com a somatória por pessoa, filtrado por local, sem abrir os itens.</p>
+  </div>
+  <div class="hero-badge">Cobrança rápida</div>
+</div>
+
+<div class="card">
+  <form method="get" action="{{ url_for('resumo_fiado_local') }}" class="form-grid">
+    <div>
+      <label>Local</label>
+      <select name="local">
+        <option value="">Todos os locais</option>
+        {% for l in locais %}
+          <option value="{{ l }}" {% if filtros.local == l %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label>Cliente</label>
+      <select name="cliente_id">
+        <option value="">Todos os clientes</option>
+        {% for c in clientes %}
+          <option value="{{ c.id }}" {% if filtros.cliente_id|string == c.id|string %}selected{% endif %}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label>Situação</label>
+      <select name="situacao">
+        <option value="aberto" {% if filtros.situacao == 'aberto' %}selected{% endif %}>Somente em aberto</option>
+        <option value="quitado" {% if filtros.situacao == 'quitado' %}selected{% endif %}>Quitados</option>
+        <option value="todos" {% if filtros.situacao == 'todos' %}selected{% endif %}>Todos</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Data inicial</label>
+      <input type="date" name="data_inicial" value="{{ filtros.data_inicial }}">
+    </div>
+
+    <div>
+      <label>Data final</label>
+      <input type="date" name="data_final" value="{{ filtros.data_final }}">
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Visualizar</button>
+      <button type="submit" formaction="{{ url_for('resumo_fiado_local_pdf') }}" formtarget="_blank" class="btn-success">Gerar PDF</button>
+      <a class="btn btn-secondary" href="{{ url_for('resumo_fiado_local') }}">Limpar filtros</a>
+    </div>
+  </form>
+</div>
+
+<div class="grid-cards">
+  <div class="stat-card"><span>Clientes</span><strong>{{ total_clientes }}</strong></div>
+  <div class="stat-card"><span>Total</span><strong>R$ {{ '%.2f'|format(total_geral or 0) }}</strong></div>
+</div>
+
+<div class="card">
+  <div class="section-header">
+    <h3>Resumo por pessoa</h3>
+    <a class="btn btn-secondary" target="_blank" href="{{ url_for('resumo_fiado_local_pdf', local=filtros.local, cliente_id=filtros.cliente_id, data_inicial=filtros.data_inicial, data_final=filtros.data_final, situacao=filtros.situacao) }}">Baixar PDF</a>
+  </div>
+
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Local</th>
+          <th>Cliente</th>
+          <th>Telefone</th>
+          <th>Última compra</th>
+          <th>Dias em aberto</th>
+          <th style="text-align:right;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in dados %}
+        <tr>
+          <td>{{ item.local }}</td>
+          <td>{{ item.cliente.nome }}</td>
+          <td>{{ item.cliente.telefone or '-' }}</td>
+          <td>{{ item.ultima.strftime('%d/%m/%Y') if item.ultima else '-' }}</td>
+          <td>{{ item.dias }} dias</td>
+          <td style="text-align:right;"><strong>R$ {{ '%.2f'|format(item.total or 0) }}</strong></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">Nenhum registro encontrado para os filtros selecionados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
